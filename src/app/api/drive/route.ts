@@ -28,7 +28,6 @@ export async function GET(request: NextRequest) {
       const response = await drive.files.list({
         // Cari file yang namanya mengandung kata kunci, abaikan folder, dan tidak di bin/trash
         q: `name contains '${search}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-        // ⚡ Menambahkan webContentLink untuk direct download bypass preview
         fields: 'files(id, name, mimeType, size, webViewLink, webContentLink, parents)',
         pageSize: 30,
       });
@@ -51,7 +50,6 @@ export async function GET(request: NextRequest) {
             }
           }
           
-          // Force direct download link menggunakan webContentLink atau shortener endpoint bawaan Drive
           const directDownloadLink = file.webContentLink || `https://docs.google.com/uc?export=download&id=${file.id}`;
 
           return {
@@ -59,7 +57,8 @@ export async function GET(request: NextRequest) {
             name: file.name,
             mimeType: file.mimeType,
             size: file.size,
-            webViewLink: directDownloadLink, // Timpa webViewLink dengan link download langsung
+            webViewLink: directDownloadLink, 
+            viewLink: `/api/drive/view?fileId=${file.id}`, // ⚡ Tautan khusus preview/streaming internal
             folderPath: parentName,
           };
         })
@@ -69,7 +68,7 @@ export async function GET(request: NextRequest) {
         success: true,
         data: {
           currentFolderId: folderId,
-          subFolders: [], // Kosongkan subfolder ketika mode cari aktif
+          subFolders: [], 
           files: filesWithPath,
           isSearchMode: true
         }
@@ -79,7 +78,6 @@ export async function GET(request: NextRequest) {
     // 📁 SKENARIO 2: JIKA USER NAVIGASI BIASA
     const response = await drive.files.list({
       q: `'${folderId}' in parents and trashed = false`,
-      // ⚡ Menambahkan webContentLink untuk direct download bypass preview
       fields: 'files(id, name, mimeType, size, webViewLink, webContentLink)',
       orderBy: 'folder, name', 
     });
@@ -88,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     const subFolders = items.filter(item => item.mimeType === 'application/vnd.google-apps.folder');
     
-    // Map data file biasa, ubah linknya menjadi download langsung
+    // Map data file biasa, sertakan viewLink
     const files = items
       .filter(item => item.mimeType !== 'application/vnd.google-apps.folder')
       .map(file => {
@@ -98,7 +96,8 @@ export async function GET(request: NextRequest) {
           name: file.name,
           mimeType: file.mimeType,
           size: file.size,
-          webViewLink: directDownloadLink, // Timpa webViewLink dengan link download langsung
+          webViewLink: directDownloadLink,
+          viewLink: `/api/drive/view?fileId=${file.id}`, // ⚡ Tautan khusus preview/streaming internal
         };
       });
 

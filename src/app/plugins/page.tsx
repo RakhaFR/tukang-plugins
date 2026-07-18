@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Folder, File, Download, ArrowLeft, Loader2, ChevronRight, Home, Star, MapPin } from 'lucide-react';
+import { Search, Folder, File, Download, ArrowLeft, Loader2, ChevronRight, Home, Star, MapPin, X, Eye } from 'lucide-react';
 
 const DISPLAY = "'Lilita One', cursive";
 const BODY = "'DM Sans', sans-serif";
@@ -15,7 +15,8 @@ interface DriveItem {
   mimeType: string;
   size?: string;
   webViewLink: string;
-  folderPath?: string; // Parameter path lokasi file ketika dicari
+  viewLink?: string; // Menyimpan link khusus streaming internal dari backend
+  folderPath?: string;
 }
 
 export default function PluginsDashboard() {
@@ -26,8 +27,10 @@ export default function PluginsDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [isSearchMode, setIsSearchMode] = useState(false);
+  
+  // State untuk mengontrol Preview Modal Fullscreen
+  const [previewFile, setPreviewFile] = useState<DriveItem | null>(null);
 
-  // Fetch data dari backend (Mendukung parameter folder aktif & pencarian global)
   const fetchFolderContent = (id: string = '', searchWord: string = '') => {
     setLoading(true);
     let url = '/api/drive';
@@ -57,28 +60,24 @@ export default function PluginsDashboard() {
       .finally(() => setLoading(false));
   };
 
-  // Trigger pencarian otomatis dengan debounce sederhana via useEffect
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (searchQuery.trim() !== '') {
         fetchFolderContent('', searchQuery);
       } else {
-        // Jika kolom pencarian dikosongkan, kembalikan ke folder saat ini
         fetchFolderContent(currentFolderId || '');
       }
-    }, 600); // Tunggu 600ms setelah mengetik baru tembak API
+    }, 600);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
-  // Masuk ke dalam sub-folder
   const handleFolderClick = (folder: DriveItem) => {
-    setSearchQuery(''); // bersihkan pencarian saat navigasi manual
+    setSearchQuery('');
     setFolderHistory([...folderHistory, { id: currentFolderId, name: folder.name }]);
     fetchFolderContent(folder.id);
   };
 
-  // Navigasi Back / Breadcrumb
   const handleBackClick = () => {
     setSearchQuery('');
     const newHistory = [...folderHistory];
@@ -87,7 +86,20 @@ export default function PluginsDashboard() {
     fetchFolderContent(previousFolder ? previousFolder.id : '');
   };
 
-  // Format ukuran file asli dari Drive
+  // Logika ketika user memicu aksi pada card file
+  const handleFileAction = (file: DriveItem) => {
+    const isImage = file.mimeType.startsWith('image/');
+    const isVideo = file.mimeType.startsWith('video/');
+
+    if (isImage || isVideo) {
+      // Jika tipe media, pancing modal fullscreen muncul
+      setPreviewFile(file);
+    } else {
+      // Jika file mentah biasa (.zip, .json, dsb), langsung download instan
+      window.open(file.webViewLink, '_blank');
+    }
+  };
+
   const formatBytes = (bytes?: string) => {
     if (!bytes) return 'Under 1 KB';
     const num = parseInt(bytes, 10);
@@ -98,7 +110,6 @@ export default function PluginsDashboard() {
     return parseFloat((num / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  // Menghitung stats/rating lokal per item agar serasi dengan halaman utama
   const getItemStats = (name: string) => {
     const weight = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const downloads = Math.floor((weight % 60) + 5);
@@ -109,14 +120,14 @@ export default function PluginsDashboard() {
   return (
     <div style={{ fontFamily: BODY, background: "#111", color: "#f5f5f5", minHeight: "100vh", display: "flex" }}>
       
-      {/* ── SIDEBAR MINIMALIS (MATCH DENGAN LANDING PAGE) ── */}
+      {/* ── SIDEBAR MINIMALIS ── */}
       <aside style={{
         width: 260, background: "#161616", borderRight: "1px solid rgba(255,255,255,0.06)",
         display: "flex", flexDirection: "column", padding: 24, justifyContent: "space-between"
       }} className="hidden md:flex shrink-0">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 40, padding: "0 8px" }}>
-            <div style={{ width: 10, h: 10, height: 10, borderRadius: "50%", background: RED }} className="animate-pulse" />
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: RED }} className="animate-pulse" />
             <span style={{ fontFamily: DISPLAY, fontSize: "1.3rem", color: "#fff", letterSpacing: "0.04em" }}>
               TukangPlugin
             </span>
@@ -205,7 +216,7 @@ export default function PluginsDashboard() {
 
         {/* LOADING ENGINE */}
         {loading && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 0", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyindex: "center", padding: "100px 0", gap: 16 }}>
             <Loader2 className="animate-spin" style={{ color: RED }} size={32} />
             <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.85rem", letterSpacing: "0.05em" }}>Syncing with Google Drive Vault...</p>
           </div>
@@ -215,7 +226,7 @@ export default function PluginsDashboard() {
         {!loading && (
           <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
             
-            {/* SUB SECTION: DIREKTORI FOLDER (Hanya Muncul Jika Tidak Sedang Mencari Global) */}
+            {/* SUB SECTION: DIREKTORI FOLDER */}
             {subFolders.length > 0 && (
               <div>
                 <h2 style={{ fontFamily: DISPLAY, fontSize: "1.1rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 16 }}>
@@ -228,7 +239,7 @@ export default function PluginsDashboard() {
                       onClick={() => handleFolderClick(folder)}
                       style={{
                         background: "#161616", border: "1px solid rgba(255,255,255,0.05)",
-                        padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: 16, display: "flex", alignItems: "center", justifyindex: "space-between",
                         cursor: "pointer", transition: "all 0.15s"
                       }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(198,224,0,0.3)"; e.currentTarget.style.background = "#1a1a1a"; }}
@@ -262,16 +273,22 @@ export default function PluginsDashboard() {
                     const stats = getItemStats(file.name);
                     const nameParts = file.name.split('.');
                     const ext = nameParts.length > 1 ? nameParts.pop()?.toUpperCase() : 'ASSET';
+                    
+                    const isMedia = file.mimeType.startsWith('image/') || file.mimeType.startsWith('video/');
 
                     return (
                       <div
                         key={file.id}
-                        style={{ background: "#111", padding: 20, display: "flex", flexDirection: "column", justifyContent: "space-between" }}
+                        style={{ background: "#111", padding: 20, display: "flex", flexDirection: "column", justifyindex: "space-between" }}
                       >
                         <div>
                           {/* Nama File & Ekstensi */}
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 12 }}>
-                            <h4 style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff", margin: 0, lineHeight: 1.4 }} className="line-clamp-2">
+                          <div style={{ display: "flex", justifyindex: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 12 }}>
+                            <h4 
+                              onClick={() => handleFileAction(file)}
+                              style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff", margin: 0, lineHeight: 1.4, cursor: "pointer" }} 
+                              className="line-clamp-2 hover:underline hover:text-red-400 transition-colors"
+                            >
                               {file.name.replace(/\.[^/.]+$/, "")}
                             </h4>
                             <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", color: RED, textTransform: "uppercase", marginTop: 2 }}>
@@ -279,7 +296,7 @@ export default function PluginsDashboard() {
                             </span>
                           </div>
 
-                          {/* Parameter Path Lokasi Folder (Muncul Spesifik Saat Search Global) */}
+                          {/* Parameter Path Lokasi Folder */}
                           {file.folderPath && (
                             <div style={{ display: "flex", alignItems: "center", gap: 5, color: LIME, fontSize: "0.72rem", marginBottom: 12, opacity: 0.85 }}>
                               <MapPin size={11} />
@@ -288,39 +305,73 @@ export default function PluginsDashboard() {
                           )}
                         </div>
 
-                        {/* Baris Meta Jarak Kanan-Kiri (Sesuai Request) */}
+                        {/* Baris Meta Jarak Kanan-Kiri */}
                         <div>
-                          <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                            {/* Blok Kiri: Bintang & Unduhan Terkunci Dekat */}
+                          <div style={{ display: "flex", width: "100%", alignItems: "center", justifyindex: "space-between", marginBottom: 16 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.35)", fontSize: "0.78rem" }}>
                               <Star size={11} style={{ color: LIME, fill: LIME }} /> 
                               <span>{stats.rating}</span>
                               <span style={{ color: "rgba(255,255,255,0.2)" }}>({stats.downloads} unduh)</span>
                             </div>
                             
-                            {/* Blok Kanan: Ukuran Asli Google Drive */}
                             <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.28)", display: "block" }}>
                               {formatBytes(file.size)}
                             </span>
                           </div>
 
                           {/* Action Button */}
-                          <a 
-                            href={file.webViewLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              width: "100%", background: "transparent",
-                              border: "1px solid rgba(255,255,255,0.13)", color: "#fff",
-                              fontWeight: 600, fontSize: "0.78rem", padding: "9px",
-                              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                              textDecoration: "none", transition: "all 0.15s"
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = RED; e.currentTarget.style.color = RED; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.13)"; e.currentTarget.style.color = "#fff"; }}
-                          >
-                            <Download size={13} /> Download File
-                          </a>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button 
+                              onClick={() => handleFileAction(file)}
+                              style={{
+                                flex: 1, background: "transparent",
+                                border: `1px solid ${isMedia ? 'rgba(198, 224, 0, 0.3)' : 'rgba(255,255,255,0.13)'}`, 
+                                color: isMedia ? LIME : "#fff",
+                                fontWeight: 600, fontSize: "0.78rem", padding: "9px",
+                                display: "flex", alignItems: "center", justifyindex: "center", gap: 6,
+                                cursor: "pointer", transition: "all 0.15s"
+                              }}
+                              onMouseEnter={e => { 
+                                e.currentTarget.style.borderColor = isMedia ? LIME : RED; 
+                                e.currentTarget.style.color = isMedia ? "#111" : RED;
+                                e.currentTarget.style.background = isMedia ? LIME : 'transparent';
+                              }}
+                              onMouseLeave={e => { 
+                                e.currentTarget.style.borderColor = isMedia ? 'rgba(198, 224, 0, 0.3)' : "rgba(255,255,255,0.13)"; 
+                                e.currentTarget.style.color = isMedia ? LIME : "#fff"; 
+                                e.currentTarget.style.background = 'transparent';
+                              }}
+                            >
+                              {isMedia ? (
+                                <>
+                                  <Eye size={13} /> Preview Media
+                                </>
+                              ) : (
+                                <>
+                                  <Download size={13} /> Download File
+                                </>
+                              )}
+                            </button>
+                            
+                            {/* Tombol Unduh Tambahan untuk File Media */}
+                            {isMedia && (
+                              <a
+                                href={file.webViewLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                                  color: "#fff", padding: "9px 12px", display: "flex", alignItems: "center", justifyindex: "center",
+                                  transition: "all 0.15s"
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+                                onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                                title="Download Langsung"
+                              >
+                                <Download size={13} />
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -342,6 +393,77 @@ export default function PluginsDashboard() {
         )}
 
       </main>
+
+      {/* ── 🖥️ MODAL FULLSCREEN PREVIEW PLAYER ── */}
+      {previewFile && (
+        <div 
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyindex: 'center', backgroundColor: 'rgba(0,0,0,0.92)',
+            backdropFilter: 'blur(8px)', padding: 20
+          }}
+        >
+          {/* Header Kontrol Modal */}
+          <div style={{ width: '100%', maxWidth: 960, display: 'flex', justifyindex: 'space-between', alignItems: 'center', marginBottom: 16, gap:24 }}>
+            <h3 style={{ fontWeight: 600, fontSize: '1rem', color: '#fff', margin: 0, maxWidth: '60%', }} className="truncate flex-1" title={previewFile.name}>
+              {previewFile.name}
+            </h3>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {/* Tombol Ambil File Fisik */}
+              <a 
+                href={previewFile.webViewLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{
+                  background: RED, color: '#fff', textDecoration: 'none', fontWeight: 600,
+                  fontSize: '0.78rem', padding: '8px 16px', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 6
+                }}
+              >
+                <Download size={14} /> Download (.zip)
+              </a>
+              {/* Close Button */}
+              <button 
+                onClick={() => setPreviewFile(null)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: 8,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              >
+                <X size={16} /> Tutup
+              </button>
+            </div>
+          </div>
+
+          {/* Wrapper Media Box Frame */}
+          <div 
+            style={{
+              width: '100%', maxWidth: 960, height: '75vh', backgroundColor: '#090909',
+              border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center',
+              justifyindex: 'center', overflow: 'hidden', position: 'relative'
+            }}
+          >
+            {previewFile.mimeType.startsWith('image/') ? (
+              // 🖼️ Renderer Gambar Fullscreen
+              <img 
+                src={previewFile.viewLink} 
+                alt={previewFile.name}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+              />
+            ) : previewFile.mimeType.startsWith('video/') ? (
+              // 🎬 Player Video Terintegrasi (Bisa Di-play/Streaming)
+              <video 
+                src={previewFile.viewLink}
+                controls
+                autoPlay
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            ) : null}
+          </div>
+        </div>
+      )}
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=DM+Sans:wght@400;500;600;700&display=swap');
