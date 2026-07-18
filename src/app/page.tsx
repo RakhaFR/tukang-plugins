@@ -44,17 +44,18 @@ export default function LandingPage() {
   }, []);
 
   // 📥 SISTEM AKSI: Mengikuti logika eksak dari /plugin Dashboard
-const handleFileAction = (file: PopularPlugin) => {
-  const mime = file.mimeType || '';
-  const isImage = mime.startsWith('image/');
-  const isVideo = mime.startsWith('video/');
+  const handleFileAction = (file: PopularPlugin) => {
+    const mime = file.mimeType || '';
+    const isImage = mime.startsWith('image/');
+    const isVideo = mime.startsWith('video/');
 
-  if (isImage || isVideo) {
-    setPreviewFile({ ...file });
-  } else {
-    window.open(file.webViewLink, '_blank');
-  }
-};
+    if (isImage || isVideo) {
+      setPreviewFile({ ...file });
+    } else {
+      // Mengarah ke link uc?export=download dari backend, langsung download instant tab baru!
+      window.open(file.webViewLink, '_blank');
+    }
+  };
 
   return (
     <div style={{ fontFamily: BODY, background: "#111", color: "#f5f5f5", minHeight: "100vh" }}>
@@ -62,7 +63,7 @@ const handleFileAction = (file: PopularPlugin) => {
       {/* ── NAV ── */}
       <nav style={{
         position: "absolute", top: 0, left: 0, right: 0, zIndex: 30,
-        display: "flex", alignItems: "center", justifyBetween: "space-between",
+        display: "flex", alignItems: "center",
         padding: "24px 40px",
         justifyContent: 'space-between'
       }}>
@@ -234,7 +235,7 @@ const handleFileAction = (file: PopularPlugin) => {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 1, background: "rgba(255,255,255,0.05)" }}>
               {popularPlugins.map(p => {
                 const mime = p.mimeType || '';
-                const isMedia = p.mimeType.startsWith('image/') || p.mimeType.startsWith('video/');
+                const isMedia = mime.startsWith('image/') || mime.startsWith('video/');
 
                 return (
                   <div
@@ -271,10 +272,11 @@ const handleFileAction = (file: PopularPlugin) => {
                           style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff", margin: 0, lineHeight: 1.3, cursor: "pointer" }}
                           className="line-clamp-2 hover:underline hover:text-red-400 transition-colors"
                         >
-                          {p.name.replace(/\.[^/.]+$/, "")}
+                          {/* 💎 FIX: Data dari /stats sudah dipotong backend, tampilkan langsung p.name murni */}
+                          {p.name}
                         </h3>
                         <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.15em", color: RED, textTransform: "uppercase", marginTop: 2, whiteSpace: "nowrap" }}>
-                          .{p.cat}
+                          .{p.cat.toLowerCase()}
                         </span>
                       </div>
                     </div>
@@ -292,7 +294,7 @@ const handleFileAction = (file: PopularPlugin) => {
                         </span>
                       </div>
 
-                      {/* 🛠️ STRATEGI TOMBOL: Mengadopsi struktur flex gap 8 dari /plugin */}
+                      {/* ── TOMBOL AKSI ── */}
                       <div style={{ display: "flex", gap: 8 }}>
                         <button
                           onClick={() => handleFileAction(p)}
@@ -327,7 +329,7 @@ const handleFileAction = (file: PopularPlugin) => {
                           )}
                         </button>
 
-                        {/* 📥 TOMBOL UNDUH TAMBAHAN: Mengadopsi elemen <a> target="_blank" murni dari /plugin */}
+                        {/* 📥 LINK DOWNLOAD DI SAMPING PREVIEW MEDIA */}
                         {isMedia && (
                           <a
                             href={p.webViewLink}
@@ -415,7 +417,6 @@ const handleFileAction = (file: PopularPlugin) => {
             </h3>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} className="shrink-0">
-              {/* 📥 Menyesuaikan string download (.zip) seperti di /plugin */}
               <a 
                 href={previewFile.webViewLink} 
                 target="_blank" 
@@ -425,7 +426,7 @@ const handleFileAction = (file: PopularPlugin) => {
                   fontSize: '0.78rem', padding: '8px 16px', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 6
                 }}
               >
-                <Download size={14} /> Download (.zip)
+                <Download size={14} /> Download File
               </a>
               <button 
                 onClick={() => setPreviewFile(null)}
