@@ -216,7 +216,7 @@ export default function PluginsDashboard() {
 
         {/* LOADING ENGINE */}
         {loading && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyindex: "center", padding: "100px 0", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 0", gap: 16 }}>
             <Loader2 className="animate-spin" style={{ color: RED }} size={32} />
             <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.85rem", letterSpacing: "0.05em" }}>Syncing with Google Drive Vault...</p>
           </div>
@@ -239,7 +239,7 @@ export default function PluginsDashboard() {
                       onClick={() => handleFolderClick(folder)}
                       style={{
                         background: "#161616", border: "1px solid rgba(255,255,255,0.05)",
-                        padding: 16, display: "flex", alignItems: "center", justifyindex: "space-between",
+                        padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between",
                         cursor: "pointer", transition: "all 0.15s"
                       }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(198,224,0,0.3)"; e.currentTarget.style.background = "#1a1a1a"; }}
@@ -279,11 +279,11 @@ export default function PluginsDashboard() {
                     return (
                       <div
                         key={file.id}
-                        style={{ background: "#111", padding: 20, display: "flex", flexDirection: "column", justifyindex: "space-between" }}
+                        style={{ background: "#111", padding: 20, display: "flex", flexDirection: "column", justifyContent: "space-between" }}
                       >
                         <div>
                           {/* Nama File & Ekstensi */}
-                          <div style={{ display: "flex", justifyindex: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 12 }}>
                             <h4 
                               onClick={() => handleFileAction(file)}
                               style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff", margin: 0, lineHeight: 1.4, cursor: "pointer" }} 
@@ -307,7 +307,7 @@ export default function PluginsDashboard() {
 
                         {/* Baris Meta Jarak Kanan-Kiri */}
                         <div>
-                          <div style={{ display: "flex", width: "100%", alignItems: "center", justifyindex: "space-between", marginBottom: 16 }}>
+                          <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.35)", fontSize: "0.78rem" }}>
                               <Star size={11} style={{ color: LIME, fill: LIME }} /> 
                               <span>{stats.rating}</span>
@@ -328,7 +328,7 @@ export default function PluginsDashboard() {
                                 border: `1px solid ${isMedia ? 'rgba(198, 224, 0, 0.3)' : 'rgba(255,255,255,0.13)'}`, 
                                 color: isMedia ? LIME : "#fff",
                                 fontWeight: 600, fontSize: "0.78rem", padding: "9px",
-                                display: "flex", alignItems: "center", justifyindex: "center", gap: 6,
+                                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                                 cursor: "pointer", transition: "all 0.15s"
                               }}
                               onMouseEnter={e => { 
@@ -361,7 +361,7 @@ export default function PluginsDashboard() {
                                 rel="noopener noreferrer"
                                 style={{
                                   background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                                  color: "#fff", padding: "9px 12px", display: "flex", alignItems: "center", justifyindex: "center",
+                                  color: "#fff", padding: "9px 12px", display: "flex", alignItems: "center", justifyContent: "center",
                                   transition: "all 0.15s"
                                 }}
                                 onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
@@ -399,12 +399,12 @@ export default function PluginsDashboard() {
         <div 
           style={{
             position: 'fixed', inset: 0, zIndex: 999, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyindex: 'center', backgroundColor: 'rgba(0,0,0,0.92)',
+            alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.92)',
             backdropFilter: 'blur(8px)', padding: 20
           }}
         >
           {/* Header Kontrol Modal */}
-          <div style={{ width: '100%', maxWidth: 960, display: 'flex', justifyindex: 'space-between', alignItems: 'center', marginBottom: 16, gap:24 }}>
+          <div style={{ width: '100%', maxWidth: 960, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap:24 }}>
             <h3 style={{ fontWeight: 600, fontSize: '1rem', color: '#fff', margin: 0, maxWidth: '60%', }} className="truncate flex-1" title={previewFile.name}>
               {previewFile.name}
             </h3>
@@ -442,7 +442,7 @@ export default function PluginsDashboard() {
             style={{
               width: '100%', maxWidth: 960, height: '75vh', backgroundColor: '#090909',
               border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center',
-              justifyindex: 'center', overflow: 'hidden', position: 'relative'
+              justifyContent: 'center', overflow: 'hidden', position: 'relative'
             }}
           >
             {previewFile.mimeType.startsWith('image/') ? (

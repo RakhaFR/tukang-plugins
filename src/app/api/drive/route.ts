@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
-// 🛠️ Inisialisasi Google Auth menggunakan variabel terpisah (.env aman dari error client_email)
+// 🛠️ Inisialisasi Google Auth
 const auth = new google.auth.GoogleAuth({
   credentials: {
     client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    // Menangani case karakter \n dibaca sebagai string mentah '\\n' oleh Windows/Next.js
     private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   },
   scopes: ['https://www.googleapis.com/auth/drive.readonly'],
@@ -26,7 +25,6 @@ export async function GET(request: NextRequest) {
     // 🔍 SKENARIO 1: JIKA USER SEDANG MENGETIK DI KOLOM PENCARIAN (GLOBAL PENCARIAN)
     if (search) {
       const response = await drive.files.list({
-        // Cari file yang namanya mengandung kata kunci, abaikan folder, dan tidak di bin/trash
         q: `name contains '${search}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
         fields: 'files(id, name, mimeType, size, webViewLink, webContentLink, parents)',
         pageSize: 30,
@@ -34,7 +32,6 @@ export async function GET(request: NextRequest) {
 
       const foundFiles = response.data.files || [];
 
-      // Dapatkan info nama folder induk secara paralel untuk mendeteksi lokasi path foldernya
       const filesWithPath = await Promise.all(
         foundFiles.map(async (file) => {
           let parentName = 'Root Repository';
@@ -50,15 +47,17 @@ export async function GET(request: NextRequest) {
             }
           }
           
-          const directDownloadLink = file.webContentLink || `https://docs.google.com/uc?export=download&id=${file.id}`;
+          // 🔥 PERBAIKAN: Paksa format tautan export download yang mem-bypass halaman preview drive
+          const directDownloadLink = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`)}`;
 
           return {
             id: file.id,
             name: file.name,
             mimeType: file.mimeType,
             size: file.size,
-            webViewLink: directDownloadLink, 
-            viewLink: `/api/drive/view?fileId=${file.id}`, // ⚡ Tautan khusus preview/streaming internal
+            // Jika file.webContentLink ada, pakai itu. Jika tidak, pakai generator link anti-preview kita
+            webViewLink: file.webContentLink ? `${file.webContentLink}&confirm=t` : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`, 
+            viewLink: `/api/drive/view?fileId=${file.id}`,
             folderPath: parentName,
           };
         })
@@ -66,12 +65,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        data: {
-          currentFolderId: folderId,
-          subFolders: [], 
-          files: filesWithPath,
-          isSearchMode: true
-        }
+        data: { currentFolderId: folderId, subFolders: [], files: filesWithPath, isSearchMode: true }
       });
     }
 
@@ -83,32 +77,29 @@ export async function GET(request: NextRequest) {
     });
 
     const items = response.data.files || [];
-
     const subFolders = items.filter(item => item.mimeType === 'application/vnd.google-apps.folder');
     
-    // Map data file biasa, sertakan viewLink
     const files = items
       .filter(item => item.mimeType !== 'application/vnd.google-apps.folder')
       .map(file => {
-        const directDownloadLink = file.webContentLink || `https://docs.google.com/uc?export=download&id=${file.id}`;
+        // 🔥 PERBAIKAN: Tambahkan parameter '&confirm=t' untuk memaksa google melewati halaman scanning/preview
+        const directDownloadLink = file.webContentLink 
+          ? `${file.webContentLink}&confirm=t` 
+          : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`;
+
         return {
           id: file.id,
           name: file.name,
           mimeType: file.mimeType,
           size: file.size,
           webViewLink: directDownloadLink,
-          viewLink: `/api/drive/view?fileId=${file.id}`, // ⚡ Tautan khusus preview/streaming internal
+          viewLink: `/api/drive/view?fileId=${file.id}`,
         };
       });
 
     return NextResponse.json({
       success: true,
-      data: {
-        currentFolderId: folderId,
-        subFolders,
-        files,
-        isSearchMode: false
-      }
+      data: { currentFolderId: folderId, subFolders, files, isSearchMode: false }
     });
 
   } catch (error: any) {
