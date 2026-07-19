@@ -89,12 +89,28 @@ export default function PluginsDashboard() {
     fetchFolderContent(previousFolder ? previousFolder.id : '');
   };
 
-  const handleFileAction = (file: DriveItem) => {
-    const isImage = file.mimeType.startsWith('image/');
-    const isVideo = file.mimeType.startsWith('video/');
-    if (isImage || isVideo) setPreviewFile(file);
-    else window.open(file.webViewLink, '_blank');
-  };
+const handleFileAction = async (file: DriveItem) => {
+  // 📈 Pemicu counter download Firebase di background
+  try {
+    await fetch('/api/drive/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId: file.id })
+    });
+  } catch (err) {
+    console.error("Gagal tracking download plugins:", err);
+  }
+
+  // Aksi preview atau download bawaan
+  const isImage = file.mimeType.startsWith('image/');
+  const isVideo = file.mimeType.startsWith('video/');
+  
+  if (isImage || isVideo) {
+    setPreviewFile(file);
+  } else {
+    window.open(file.webViewLink, '_blank');
+  }
+};
 
   const formatBytes = (bytes?: string) => {
     if (!bytes) return 'Under 1 KB';

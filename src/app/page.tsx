@@ -63,17 +63,29 @@ export default function LandingPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleFileAction = (file: PopularPlugin) => {
-    const mime = file.mimeType || '';
-    const isImage = mime.startsWith('image/');
-    const isVideo = mime.startsWith('video/');
+const handleFileAction = async (file: PopularPlugin) => {
+  // 📈 Pemicu counter download Firebase di background
+  try {
+    await fetch('/api/drive/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId: file.id })
+    });
+  } catch (err) {
+    console.error("Gagal tracking download root:", err);
+  }
 
-    if (isImage || isVideo) {
-      setPreviewFile({ ...file });
-    } else {
-      window.open(file.webViewLink, '_blank');
-    }
-  };
+  // Aksi preview atau download bawaan
+  const mime = file.mimeType || '';
+  const isImage = mime.startsWith('image/');
+  const isVideo = mime.startsWith('video/');
+
+  if (isImage || isVideo) {
+    setPreviewFile({ ...file });
+  } else {
+    window.open(file.webViewLink, '_blank');
+  }
+};
 
   return (
     <div style={{ fontFamily: BODY, background: "#111", color: "#f5f5f5", minHeight: "100vh", overflowX: "hidden" }}>

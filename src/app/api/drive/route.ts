@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { db } from '@/lib/firebaseAdmin'; 
+import { FieldPath } from 'firebase-admin/firestore'; //  Ganti dengan FieldPath
 
-// 🛠️ Inisialisasi Google Auth
 const auth = new google.auth.GoogleAuth({
   credentials: {
     client_email: process.env.GOOGLE_CLIENT_EMAIL,
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Root Folder ID tidak ditemukan' }, { status: 400 });
     }
 
-    // 🔍 SKENARIO 1: JIKA USER SEDANG MENGETIK DI KOLOM PENCARIAN (GLOBAL PENCARIAN)
+    // 🔍 SKENARIO 1: JIKA USER SEDANG MENGETIK DI KOLOM PENCARIAN
     if (search) {
       const response = await drive.files.list({
         q: `name contains '${search}' and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
@@ -31,6 +32,24 @@ export async function GET(request: NextRequest) {
       });
 
       const foundFiles = response.data.files || [];
+      const fileIds = foundFiles.map(f => f.id).filter(Boolean);
+
+      // 🌟 OPTIMASI BATCH: Ambil semua data stats dari Firestore sekaligus dalam 1 query
+      const statsMap: Record<string, any> = {};
+      if (fileIds.length > 0) {
+        try {
+          // Maksimal operator 'in' di Firestore adalah 30 item (pas dengan pageSize kita)
+        const statsSnap = await db.collection('plugin_stats')
+          .where(FieldPath.documentId(), 'in', fileIds.slice(0, 30))
+          .get();
+          
+          statsSnap.forEach(doc => {
+            statsMap[doc.id] = doc.data();
+          });
+        } catch (err) {
+          console.error('Gagal mengambil batch stats Firestore (Search):', err);
+        }
+      }
 
       const filesWithPath = await Promise.all(
         foundFiles.map(async (file) => {
@@ -47,18 +66,25 @@ export async function GET(request: NextRequest) {
             }
           }
           
-          // 🔥 PERBAIKAN: Paksa format tautan export download yang mem-bypass halaman preview drive
-          const directDownloadLink = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`)}`;
+          const directDownloadLink = file.webContentLink 
+            ? `${file.webContentLink}&confirm=t` 
+            : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`;
+
+          // Ambil dari map lokal, gak nembak koneksi Firestore lagi
+          const fileData = statsMap[file.id];
+          const dlCount = fileData?.download_count || 0;
+          const fileRating = fileData?.rating?.toFixed(1) || "4.5";
 
           return {
             id: file.id,
             name: file.name,
             mimeType: file.mimeType,
             size: file.size,
-            // Jika file.webContentLink ada, pakai itu. Jika tidak, pakai generator link anti-preview kita
-            webViewLink: file.webContentLink ? `${file.webContentLink}&confirm=t` : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`, 
+            webViewLink: directDownloadLink,
             viewLink: `/api/drive/view?fileId=${file.id}`,
             folderPath: parentName,
+            dl: dlCount,        
+            rating: fileRating,  
           };
         })
       );
@@ -79,23 +105,53 @@ export async function GET(request: NextRequest) {
     const items = response.data.files || [];
     const subFolders = items.filter(item => item.mimeType === 'application/vnd.google-apps.folder');
     
-    const files = items
-      .filter(item => item.mimeType !== 'application/vnd.google-apps.folder')
-      .map(file => {
-        // 🔥 PERBAIKAN: Tambahkan parameter '&confirm=t' untuk memaksa google melewati halaman scanning/preview
-        const directDownloadLink = file.webContentLink 
-          ? `${file.webContentLink}&confirm=t` 
-          : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`;
+    const validFiles = items.filter(item => item.mimeType !== 'application/vnd.google-apps.folder');
+    const fileIds = validFiles.map(f => f.id).filter(Boolean);
 
-        return {
-          id: file.id,
-          name: file.name,
-          mimeType: file.mimeType,
-          size: file.size,
-          webViewLink: directDownloadLink,
-          viewLink: `/api/drive/view?fileId=${file.id}`,
-        };
-      });
+    // 🌟 OPTIMASI BATCH: Ambil semua data stats dari Firestore sekaligus dalam 1 query
+    const statsMap: Record<string, any> = {};
+    if (fileIds.length > 0) {
+      try {
+        // Antisipasi kalau isi folder lebih dari 30 file, kita pecah chunk-nya biar gak limit Firestore
+        const chunks = [];
+        for (let i = 0; i < fileIds.length; i += 30) {
+          chunks.push(fileIds.slice(i, i + 30));
+        }
+
+        await Promise.all(
+          chunks.map(async (chunk) => {
+            const statsSnap = await db.collection('plugin_stats').where(FieldPath.documentId(), 'in', chunk).get();
+            statsSnap.forEach(doc => {
+              statsMap[doc.id] = doc.data();
+            });
+          })
+        );
+      } catch (err) {
+        console.error('Gagal mengambil batch stats Firestore (Navigasi):', err);
+      }
+    }
+    
+    const files = validFiles.map((file) => {
+      const directDownloadLink = file.webContentLink 
+        ? `${file.webContentLink}&confirm=t` 
+        : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`;
+
+      // Ambil dari map lokal, anti-blocking dan ngebut banget
+      const fileData = statsMap[file.id];
+      const dlCount = fileData?.download_count || 0;
+      const fileRating = fileData?.rating?.toFixed(1) || "4.5";
+
+      return {
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        size: file.size,
+        webViewLink: directDownloadLink,
+        viewLink: `/api/drive/view?fileId=${file.id}`,
+        dl: dlCount,        
+        rating: fileRating,  
+      };
+    });
 
     return NextResponse.json({
       success: true,
