@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { drive } from '@/lib/googleDrive';
 import { db } from '@/lib/firebaseAdmin';
 import { drive_v3 } from 'googleapis';
+import { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export async function GET() {
     const pluginsSnapshot = await db.collection('plugin_stats').get();
     const firestoreDataMap = new Map<string, any>();
     
-    pluginsSnapshot.forEach((doc) => {
+    pluginsSnapshot.forEach((doc: QueryDocumentSnapshot) => {
       const data = doc.data();
       firestoreDataMap.set(doc.id, data);
     });
