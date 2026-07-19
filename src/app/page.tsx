@@ -11,7 +11,8 @@ import {
   Star, 
   Loader2, 
   X, 
-  Eye 
+  Eye,
+  Play
 } from 'lucide-react';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -71,34 +72,34 @@ export default function LandingPage() {
     }, 16);
   };
 
-useEffect(() => {
-  const initAOS = async () => {
-    const AOS = (await import('aos')).default;
-    AOS.init({ duration: 800, once: true, easing: 'ease-out-quad' });
-  };
+  useEffect(() => {
+    const initAOS = async () => {
+      const AOS = (await import('aos')).default;
+      AOS.init({ duration: 800, once: true, easing: 'ease-out-quad' });
+    };
 
-  // Preload hero image dulu sebelum tampilkan halaman
-  const img = new Image();
-  img.src = '/hero.png';
-  img.onload = () => setPageReady(true);
-  img.onerror = () => setPageReady(true); // Tetap lanjut meski gagal load
+    // Preload hero image dulu sebelum tampilkan halaman
+    const img = new Image();
+    img.src = '/hero.png';
+    img.onload = () => setPageReady(true);
+    img.onerror = () => setPageReady(true);
 
-  initAOS();
-  fetch('/api/drive/visit', { method: 'POST' }).catch(() => {});
-  fetch('/api/drive/stats')
-    .then((res) => res.json())
-    .then((resData) => {
-      if (resData.success) {
-        setStats(resData.stats);
-        setPopularPlugins(resData.popularPlugins);
-        animateCount(resData.stats.totalPlugins, setDisplayPlugins);
-        animateCount(resData.stats.totalDownloads, setDisplayDownloads);
-        animateCount(resData.stats.visits, setDisplayVisits);
-      }
-    })
-    .catch((err) => console.error('Gagal memuat statistik landing:', err))
-    .finally(() => setLoading(false));
-}, []);
+    initAOS();
+    fetch('/api/drive/visit', { method: 'POST' }).catch(() => {});
+    fetch('/api/drive/stats')
+      .then((res) => res.json())
+      .then((resData) => {
+        if (resData.success) {
+          setStats(resData.stats);
+          setPopularPlugins(resData.popularPlugins);
+          animateCount(resData.stats.totalPlugins, setDisplayPlugins);
+          animateCount(resData.stats.totalDownloads, setDisplayDownloads);
+          animateCount(resData.stats.visits, setDisplayVisits);
+        }
+      })
+      .catch((err) => console.error('Gagal memuat statistik landing:', err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const trackDownload = async (file: PopularPlugin) => {
     try {
@@ -117,19 +118,24 @@ useEffect(() => {
     }
   };
 
-  const handleFileAction = async (file: PopularPlugin) => {
+  // Preview saja — tidak track download, tidak nambah counter
+  const handlePreviewAction = (file: PopularPlugin) => {
     const mime = file.mimeType || '';
     const isImage = mime.startsWith('image/');
     const isVideo = mime.startsWith('video/');
+    if (isImage || isVideo) {
+      setPreviewFile(file);
+    }
+  };
 
-    setPopularPlugins((prevPlugins) =>
-      prevPlugins.map((p) =>
+  // Download — track + nambah counter + munculin rating
+  const handleDownloadAction = async (file: PopularPlugin) => {
+    setPopularPlugins((prev) =>
+      prev.map((p) =>
         p.id === file.id ? { ...p, dl: String(parseInt(p.dl || '0') + 1) } : p
       )
     );
-
     await trackDownload(file);
-
     const hasRated = localStorage.getItem(`rated_${file.id}`);
     if (!hasRated) {
       setTimeout(() => {
@@ -137,10 +143,11 @@ useEffect(() => {
         setShowRateModal(true);
       }, 1500);
     }
-
-    if (isImage || isVideo) {
-      setPreviewFile({ ...file, dl: String(parseInt(file.dl || '0') + 1) });
-    } else {
+    const mime = file.mimeType || '';
+    const isImage = mime.startsWith('image/');
+    const isVideo = mime.startsWith('video/');
+    // File biasa (zip, dll) langsung buka link; media cukup update counter
+    if (!isImage && !isVideo) {
       window.open(file.webViewLink, '_blank');
     }
   };
@@ -165,30 +172,31 @@ useEffect(() => {
 
   return (
     <div style={{ fontFamily: BODY, background: "#111", color: "#f5f5f5", minHeight: "100vh", overflowX: "hidden" }}>
-            {/* ── LOADING SCREEN ── */}
-    {!pageReady && (
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: '#111',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 20,
-        animation: 'fadeOut 0.4s ease forwards',
-        animationDelay: pageReady ? '0s' : '999s'
-      }}>
-        <span style={{ fontFamily: DISPLAY, fontSize: '2rem', color: '#fff', letterSpacing: '0.04em' }}>
-          Tukang<span style={{ color: '#C6E000' }}>Plugin</span>
-        </span>
-        <div style={{ width: 180, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', background: '#E53935',
-            animation: 'loadBar 1.2s ease-in-out forwards'
-          }} />
+      {/* ── LOADING SCREEN ── */}
+      {!pageReady && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: '#111',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 20,
+          animation: 'fadeOut 0.4s ease forwards',
+          animationDelay: pageReady ? '0s' : '999s'
+        }}>
+          <span style={{ fontFamily: DISPLAY, fontSize: '2rem', color: '#fff', letterSpacing: '0.04em' }}>
+            Tukang<span style={{ color: '#C6E000' }}>Plugin</span>
+          </span>
+          <div style={{ width: 180, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', background: '#E53935',
+              animation: 'loadBar 1.2s ease-in-out forwards'
+            }} />
+          </div>
+          <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+            Memuat aset...
+          </span>
         </div>
-        <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-          Memuat aset...
-        </span>
-      </div>
-    )}
+      )}
+
       {/* ── NAV ── */}
       <nav className="nav-bar" style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
@@ -341,18 +349,36 @@ useEffect(() => {
               {popularPlugins.map((p, idx) => {
                 const mime = p.mimeType || '';
                 const isMedia = mime.startsWith('image/') || mime.startsWith('video/');
+                const isImage = mime.startsWith('image/');
+                const isVideo = mime.startsWith('video/');
                 return (
                   <div key={`${p.id}-${p.dl}`} data-aos="fade-up" data-aos-delay={(idx % 3) * 100} className="plugin-card" style={{ background: "#111", padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", transition: "all 0.25s" }}>
                     <div>
-                      <div onClick={() => handleFileAction(p)} className="plugin-thumbnail" style={{ width: "100%", aspectRatio: "16/9", background: "#1c1c1c", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative", border: "1px solid rgba(255,255,255,0.03)", cursor: "pointer", transition: "all 0.3s" }}>
-                        {isMedia && p.viewLink ? (
-                          <img src={p.viewLink} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.7, transition: "opacity 0.3s" }} className="thumb-img" />
+                      {/* Thumbnail — hanya preview, tidak track download */}
+                      <div onClick={() => handlePreviewAction(p)} className="plugin-thumbnail" style={{ width: "100%", aspectRatio: "16/9", background: "#1c1c1c", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative", border: "1px solid rgba(255,255,255,0.03)", cursor: isMedia ? "pointer" : "default", transition: "all 0.3s" }}>
+                        {isImage && p.viewLink ? (
+                          <img
+                            src={p.viewLink}
+                            alt={p.name}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.7, transition: "opacity 0.3s" }}
+                            className="thumb-img"
+                          />
+                        ) : isVideo ? (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                            <Play size={28} style={{ color: LIME, opacity: 0.7 }} />
+                            <span style={{ fontSize: "0.62rem", fontWeight: 600, letterSpacing: "0.14em", color: "rgba(255,255,255,0.25)", textTransform: "uppercase" }}>
+                              Video Preview
+                            </span>
+                          </div>
                         ) : (
-                          <span style={{ fontSize: "0.68rem", fontWeight: 600, letterSpacing: "0.14em", color: "rgba(255,255,255,0.2)", textTransform: "uppercase" }}>{p.cat} FILE</span>
+                          <span style={{ fontSize: "0.68rem", fontWeight: 600, letterSpacing: "0.14em", color: "rgba(255,255,255,0.2)", textTransform: "uppercase" }}>
+                            {p.cat} FILE
+                          </span>
                         )}
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 8 }}>
-                        <h3 onClick={() => handleFileAction(p)} style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff", margin: 0, lineHeight: 1.3, cursor: "pointer" }}>{p.name}</h3>
+                        {/* Nama file — hanya preview, tidak track download */}
+                        <h3 onClick={() => handlePreviewAction(p)} style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff", margin: 0, lineHeight: 1.3, cursor: isMedia ? "pointer" : "default" }}>{p.name}</h3>
                         <span style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.15em", color: RED, textTransform: "uppercase", marginTop: 2, whiteSpace: "nowrap" }}>.{p.cat.toLowerCase()}</span>
                       </div>
                     </div>
@@ -366,13 +392,25 @@ useEffect(() => {
                         <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.28)" }}>{p.rawSize}</span>
                       </div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => handleFileAction(p)} className="plugin-btn-action" style={{ flex: 1, background: "transparent", border: `1px solid ${isMedia ? 'rgba(198, 224, 0, 0.3)' : 'rgba(255,255,255,0.13)'}`, color: isMedia ? LIME : "#fff", fontFamily: BODY, fontWeight: 600, fontSize: "0.78rem", letterSpacing: "0.06em", padding: "9px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.2s" }} data-ismedia={isMedia}>
-                          {isMedia ? <><Eye size={13} /> Preview</> : <><Download size={13} /> Download</>}
+                        {/* Tombol utama: Preview untuk media, Download untuk file biasa */}
+                        <button
+                          onClick={() => isMedia ? handlePreviewAction(p) : handleDownloadAction(p)}
+                          className="plugin-btn-action"
+                          style={{ flex: 1, background: "transparent", border: `1px solid ${isMedia ? 'rgba(198, 224, 0, 0.3)' : 'rgba(255,255,255,0.13)'}`, color: isMedia ? LIME : "#fff", fontFamily: BODY, fontWeight: 600, fontSize: "0.78rem", letterSpacing: "0.06em", padding: "9px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.2s" }}
+                          data-ismedia={isMedia}
+                        >
+                          {isImage ? <><Eye size={13} /> Preview</> : isVideo ? <><Play size={13} /> Preview</> : <><Download size={13} /> Download</>}
                         </button>
+                        {/* Tombol download ikon — khusus media (foto & video) */}
                         {isMedia && (
-                          <a href={p.webViewLink} target="_blank" rel="noopener noreferrer" onClick={() => handleFileAction(p)} className="download-icon-btn" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "9px 12px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", textDecoration: "none" }} title="Download Langsung">
+                          <button
+                            onClick={() => handleDownloadAction(p)}
+                            className="download-icon-btn"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "9px 12px", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", cursor: "pointer" }}
+                            title="Download Langsung"
+                          >
                             <Download size={13} />
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -439,15 +477,14 @@ useEffect(() => {
           <div className="modal-header" style={{ width: '100%', maxWidth: 960, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 16 }}>
             <h3 style={{ fontWeight: 600, fontSize: '0.95rem', color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{previewFile.name}</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-              <a href={previewFile.webViewLink} target="_blank" rel="noopener noreferrer"
-                onClick={async () => {
-                  await trackDownload(previewFile);
-                  setPopularPlugins((prev) => prev.map((p) => p.id === previewFile.id ? { ...p, dl: String(parseInt(p.dl || '0') + 1) } : p));
-                  setPreviewFile((prev) => prev ? { ...prev, dl: String(parseInt(prev.dl || '0') + 1) } : null);
-                }}
-                className="btn-red-hover" style={{ background: RED, color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: '0.75rem', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s' }}>
+              {/* Tombol Download di modal — track + rating */}
+              <button
+                onClick={() => handleDownloadAction(previewFile)}
+                className="btn-red-hover"
+                style={{ background: RED, color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.75rem', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s', cursor: 'pointer' }}
+              >
                 <Download size={13} /> Download
-              </a>
+              </button>
               <button onClick={() => setPreviewFile(null)} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, transition: 'background 0.2s', fontSize: '0.8rem', fontWeight: 600 }} className="btn-close-modal">
                 <X size={15} /> Tutup
               </button>
@@ -517,7 +554,6 @@ useEffect(() => {
         .social-card:hover { background: #252525 !important; border-color: rgba(255,255,255,0.04) !important; transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.4); }
         .social-card:hover .social-action-text { transform: translateX(4px); }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        /* ── LOADING SCREEN ── */
         @keyframes loadBar {
           from { width: 0%; }
           to { width: 100%; }
