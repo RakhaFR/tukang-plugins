@@ -589,11 +589,11 @@ export default function LandingPage() {
         </Link>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="footer-bar" style={{
-        background: "#0d0d0d", padding: "24px 24px",
-        display: "flex", alignItems: "center", center: "space-between", flexWrap: "wrap", gap: 10,
-      }}>
+        {/* ── FOOTER ── */}
+        <footer className="footer-bar" style={{
+          background: "#0d0d0d", padding: "24px 24px",
+          display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10,
+        }}>
         <span style={{ fontFamily: DISPLAY, fontSize: "1.1rem", color: "#fff", letterSpacing: "0.04em" }}>TukangPlugin</span>
         <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.28)", margin: 0 }}>
           © 2026 · Untuk komunitas BangRiyadi Community's

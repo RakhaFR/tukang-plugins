@@ -374,7 +374,7 @@ export default function PluginsDashboard() {
             {/* Konten Efek */}
             <div style={{ fontSize: '2.5rem', marginBottom: 12, display: 'inline-block' }}>⭐</div>
             
-            <h3 className={lilitaOne.className} style={{ fontSize: '1.35rem', color: '#fff', trackingWide: '0.02em', margin: '0 0 8px 0' }}>
+            <h3 className={lilitaOne.className} style={{ fontSize: '1.35rem', color: '#fff', letterSpacing: '0.02em', margin: '0 0 8px 0' }}>
               Bantu Rating Dong!
             </h3>
             
