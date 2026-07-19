@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
       });
 
       const foundFiles = response.data.files || [];
-      const fileIds = foundFiles.map(f => f.id).filter(Boolean);
+
+      // ✅ FIX: filter null agar tidak error saat dijadikan index
+      const fileIds = foundFiles.map(f => f.id).filter((id): id is string => id !== null && id !== undefined);
 
       const statsMap: Record<string, any> = {};
       if (fileIds.length > 0) {
@@ -41,7 +43,6 @@ export async function GET(request: NextRequest) {
             .where(FieldPath.documentId(), 'in', fileIds.slice(0, 30))
             .get();
           
-          // ✅ FIX 1: Tambah tipe QueryDocumentSnapshot
           statsSnap.forEach((doc: QueryDocumentSnapshot) => {
             statsMap[doc.id] = doc.data();
           });
@@ -69,7 +70,8 @@ export async function GET(request: NextRequest) {
             ? `${file.webContentLink}&confirm=t` 
             : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`;
 
-          const fileData = statsMap[file.id];
+          // ✅ FIX: gunakan string kosong sebagai fallback jika file.id null
+          const fileData = file.id ? statsMap[file.id] : undefined;
           const dlCount = fileData?.download_count || 0;
           const fileRating = fileData?.rating?.toFixed(1) || "4.5";
 
@@ -104,12 +106,14 @@ export async function GET(request: NextRequest) {
     const subFolders = items.filter(item => item.mimeType === 'application/vnd.google-apps.folder');
     
     const validFiles = items.filter(item => item.mimeType !== 'application/vnd.google-apps.folder');
-    const fileIds = validFiles.map(f => f.id).filter(Boolean);
+
+    // ✅ FIX: filter null dengan type guard
+    const fileIds = validFiles.map(f => f.id).filter((id): id is string => id !== null && id !== undefined);
 
     const statsMap: Record<string, any> = {};
     if (fileIds.length > 0) {
       try {
-        const chunks = [];
+        const chunks: string[][] = [];
         for (let i = 0; i < fileIds.length; i += 30) {
           chunks.push(fileIds.slice(i, i + 30));
         }
@@ -120,7 +124,6 @@ export async function GET(request: NextRequest) {
               .where(FieldPath.documentId(), 'in', chunk)
               .get();
 
-            // ✅ FIX 2: Tambah tipe QueryDocumentSnapshot
             statsSnap.forEach((doc: QueryDocumentSnapshot) => {
               statsMap[doc.id] = doc.data();
             });
@@ -136,7 +139,8 @@ export async function GET(request: NextRequest) {
         ? `${file.webContentLink}&confirm=t` 
         : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`;
 
-      const fileData = statsMap[file.id];
+      // ✅ FIX: cek null sebelum akses statsMap
+      const fileData = file.id ? statsMap[file.id] : undefined;
       const dlCount = fileData?.download_count || 0;
       const fileRating = fileData?.rating?.toFixed(1) || "4.5";
 
