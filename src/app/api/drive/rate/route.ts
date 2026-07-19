@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
-import { FieldValue, Transaction, DocumentSnapshot } from 'firebase-admin/firestore';
+import { FieldValue, Transaction, DocumentReference, DocumentData } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,17 +10,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Data tidak valid' }, { status: 400 });
     }
 
-    const fileRef = db.collection('plugin_stats').doc(fileId);
+    const fileRef = db.collection('plugin_stats').doc(fileId) as DocumentReference<DocumentData>;
     
-    // Gunakan Firestore Transaction supaya kalkulasi matematisnya aman dari bentrokan user lain
-        await db.runTransaction(async (transaction: Transaction) => {
-        const sfDoc: DocumentSnapshot = await transaction.get(fileRef);
+    await db.runTransaction(async (transaction: Transaction) => {
+      const sfDoc = await transaction.get(fileRef);
+      
+      let newTotalStars = stars;
+      let newTotalVoters = 1;
 
-        let newTotalStars = stars;
-        let newTotalVoters = 1;
-
-        if (sfDoc.exists) {   // ✅ Now TypeScript recognizes .exists correctly
-            const data = sfDoc.data() || {};
+      if (sfDoc.exists) {
+        const data = sfDoc.data() || {};
         const currentStars = data.total_stars || 0;
         const currentVoters = data.total_voters || 0;
 
