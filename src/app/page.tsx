@@ -129,28 +129,23 @@ export default function LandingPage() {
   };
 
   // Download — track + nambah counter + munculin rating
-  const handleDownloadAction = async (file: PopularPlugin) => {
-    setPopularPlugins((prev) =>
-      prev.map((p) =>
-        p.id === file.id ? { ...p, dl: String(parseInt(p.dl || '0') + 1) } : p
-      )
-    );
-    await trackDownload(file);
-    const hasRated = localStorage.getItem(`rated_${file.id}`);
-    if (!hasRated) {
-      setTimeout(() => {
-        setActiveFileId(file.id);
-        setShowRateModal(true);
-      }, 1500);
-    }
-    const mime = file.mimeType || '';
-    const isImage = mime.startsWith('image/');
-    const isVideo = mime.startsWith('video/');
-    // File biasa (zip, dll) langsung buka link; media cukup update counter
-    if (!isImage && !isVideo) {
-      window.open(file.webViewLink, '_blank');
-    }
-  };
+const handleDownloadAction = async (file: PopularPlugin) => {
+  setPopularPlugins((prev) =>
+    prev.map((p) =>
+      p.id === file.id ? { ...p, dl: String(parseInt(p.dl || '0') + 1) } : p
+    )
+  );
+  await trackDownload(file);
+  const hasRated = localStorage.getItem(`rated_${file.id}`);
+  if (!hasRated) {
+    setTimeout(() => {
+      setActiveFileId(file.id);
+      setShowRateModal(true);
+    }, 1500);
+  }
+  // Semua tipe file langsung download ke penyimpanan internal
+  window.open(`https://drive.google.com/uc?export=download&id=${file.id}`, '_blank');
+};
 
   const handleSendRating = async (starRating: number) => {
     if (!activeFileId) return;

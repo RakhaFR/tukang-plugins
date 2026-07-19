@@ -25,11 +25,11 @@ interface DriveItem {
   name: string;
   mimeType: string;
   size?: string;
-  webViewLink: string; 
-  viewLink: string;    
+  webViewLink: string;
+  viewLink: string;
   folderPath?: string;
-  dl: number;          
-  rating: string;      
+  dl: number;
+  rating: string;
 }
 
 export default function PluginsDashboard() {
@@ -48,6 +48,7 @@ export default function PluginsDashboard() {
   // ── STATE UNTUK POP-UP RATING ──
   const [ratingFile, setRatingFile] = useState<DriveItem | null>(null);
   const [submittingRating, setSubmittingRating] = useState<boolean>(false);
+  const [hoveredStar, setHoveredStar] = useState<number>(0);
 
   useEffect(() => {
     setMounted(true);
@@ -91,9 +92,8 @@ export default function PluginsDashboard() {
         fetchFolderContent(currentFolderId || '');
       }
     }, 600);
-    
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]); 
+  }, [searchQuery]);
 
   const handleFolderClick = (folder: DriveItem) => {
     setSearchQuery('');
@@ -109,70 +109,67 @@ export default function PluginsDashboard() {
     setFolderHistory(newHistory);
     fetchFolderContent(previousFolder ? previousFolder.id : '');
   };
-  const [hoveredStar, setHoveredStar] = useState<number>(0);
-// Fungsi khusus PREVIEW saja — tidak track download
-const handlePreviewAction = (file: DriveItem) => {
-  setPreviewFile(file);
-};
 
-// Fungsi khusus DOWNLOAD — track download + rating
-const handleDownloadAction = async (file: DriveItem) => {
-  try {
-    await fetch('/api/drive/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId: file.id })
-    });
-  } catch (err) {
-    console.error("Gagal tracking download plugins:", err);
-  }
+  // Preview saja — tidak track download
+  const handlePreviewAction = (file: DriveItem) => {
+    setPreviewFile(file);
+  };
 
-  window.open(file.webViewLink, '_blank');
-
-  const hasRated = localStorage.getItem(`rated_${file.id}`);
-  if (!hasRated) {
-    setTimeout(() => setRatingFile(file), 1500);
-  }
-};
-
-// Fungsi untuk file biasa (zip, dll) — tetap track download
-const handleFileAction = async (file: DriveItem) => {
-  const isImage = file.mimeType.startsWith('image/');
-  const isVideo = file.mimeType.startsWith('video/');
-
-  if (isImage || isVideo) {
-    // Preview saja, tidak track download
-    handlePreviewAction(file);
-  } else {
-    // File biasa — track download
-    await handleDownloadAction(file);
-  }
-};
-
-const handleSendRating = async (stars: number) => {
-  if (!ratingFile) return;
-  setSubmittingRating(true);
-  try {
-    const response = await fetch('/api/drive/rate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId: ratingFile.id, stars: stars })
-    });
-    const resData = await response.json();
-    if (resData.success) {
-      // ✅ Simpan ke localStorage agar tidak muncul lagi
-      localStorage.setItem(`rated_${ratingFile.id}`, 'true');
-      fetchFolderContent(currentFolderId || '');
-      setRatingFile(null);
-    } else {
-      alert("Gagal menyimpan rating.");
+  // Download — track + rating + langsung ke penyimpanan internal
+  const handleDownloadAction = async (file: DriveItem) => {
+    try {
+      await fetch('/api/drive/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: file.id })
+      });
+    } catch (err) {
+      console.error("Gagal tracking download plugins:", err);
     }
-  } catch (err) {
-    console.error("Error submitting rating:", err);
-  } finally {
-    setSubmittingRating(false);
-  }
-};
+
+    // Langsung download ke penyimpanan internal, bypass viewer Drive
+    window.open(`https://drive.google.com/uc?export=download&id=${file.id}`, '_blank');
+
+    const hasRated = localStorage.getItem(`rated_${file.id}`);
+    if (!hasRated) {
+      setTimeout(() => setRatingFile(file), 1500);
+    }
+  };
+
+  // File biasa (zip, dll) — track download; media — preview saja
+  const handleFileAction = async (file: DriveItem) => {
+    const isImage = file.mimeType.startsWith('image/');
+    const isVideo = file.mimeType.startsWith('video/');
+    if (isImage || isVideo) {
+      handlePreviewAction(file);
+    } else {
+      await handleDownloadAction(file);
+    }
+  };
+
+  const handleSendRating = async (stars: number) => {
+    if (!ratingFile) return;
+    setSubmittingRating(true);
+    try {
+      const response = await fetch('/api/drive/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: ratingFile.id, stars: stars })
+      });
+      const resData = await response.json();
+      if (resData.success) {
+        localStorage.setItem(`rated_${ratingFile.id}`, 'true');
+        fetchFolderContent(currentFolderId || '');
+        setRatingFile(null);
+      } else {
+        alert("Gagal menyimpan rating.");
+      }
+    } catch (err) {
+      console.error("Error submitting rating:", err);
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
 
   const formatBytes = (bytes?: string) => {
     if (!bytes) return 'Under 1 KB';
@@ -237,7 +234,6 @@ const handleSendRating = async (stars: number) => {
                 TukangPlugin
               </span>
             </div>
-
             <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <Link href="/" onClick={() => setSidebarOpen(false)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", color: "rgba(255,255,255,0.45)", textDecoration: "none", fontSize: "0.875rem", fontWeight: 500 }}>
                 <Home size={18} /> Home About
@@ -254,7 +250,7 @@ const handleSendRating = async (stars: number) => {
 
         {/* MAIN CONTENT */}
         <main style={{ flex: 1, padding: isMobile ? "20px 16px" : "32px 24px", width: "100%", minWidth: 0 }}>
-          
+
           {/* CONTROL BAR */}
           <div style={{ display: "flex", gap: 12, background: "#161616", padding: 14, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 24, alignItems: "center", justifyContent: "space-between", flexDirection: isMobile ? "column" : "row" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem", flexWrap: "wrap", minWidth: 0, flex: 1, width: isMobile ? "100%" : "auto" }}>
@@ -271,7 +267,6 @@ const handleSendRating = async (stars: number) => {
                 </div>
               ))}
             </div>
-
             <div style={{ position: "relative", width: isMobile ? "100%" : 280, flexShrink: 0 }}>
               <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.3)", pointerEvents: "none" }} size={14} />
               <input type="text" placeholder="Ketik nama asset..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: "100%", background: "#1c1c1c", border: "1px solid rgba(255,255,255,0.1)", padding: "8px 14px 8px 36px", fontSize: "0.82rem", color: "#fff", outline: "none" }} />
@@ -280,21 +275,21 @@ const handleSendRating = async (stars: number) => {
 
           {loading && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", gap: 16 }}>
-              <Loader2 
-                style={{ 
-                  color: RED, 
+              <Loader2
+                style={{
+                  color: RED,
                   WebkitAnimation: "spin 1s linear infinite",
-                  animation: "spin 1s linear infinite" 
-                }} 
-                size={28} 
-              />              
+                  animation: "spin 1s linear infinite"
+                }}
+                size={28}
+              />
               <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.82rem" }}>Syncing with Google Drive Vault...</p>
             </div>
           )}
 
           {!loading && (
             <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
-              
+
               {/* SUBFOLDERS */}
               {subFolders.length > 0 && (
                 <div>
@@ -322,12 +317,20 @@ const handleSendRating = async (stars: number) => {
                       const nameParts = file.name.split('.');
                       const ext = nameParts.length > 1 ? nameParts.pop()?.toUpperCase() : 'ASSET';
                       const isMedia = file.mimeType.startsWith('image/') || file.mimeType.startsWith('video/');
+                      const isImage = file.mimeType.startsWith('image/');
+                      const isVideo = file.mimeType.startsWith('video/');
 
                       return (
                         <div key={file.id} style={{ background: "#111", padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                           <div>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 10 }}>
-                              <h4 onClick={() => handleFileAction(file)} style={{ fontWeight: 600, fontSize: "0.875rem", color: "#fff", margin: 0, cursor: "pointer" }}>{file.name.replace(/\.[^/.]+$/, "")}</h4>
+                              {/* Nama file — preview untuk media, download untuk file biasa */}
+                              <h4
+                                onClick={() => handleFileAction(file)}
+                                style={{ fontWeight: 600, fontSize: "0.875rem", color: "#fff", margin: 0, cursor: "pointer" }}
+                              >
+                                {file.name.replace(/\.[^/.]+$/, "")}
+                              </h4>
                               <span style={{ fontSize: "0.62rem", fontWeight: 700, color: RED }}>.{ext}</span>
                             </div>
                             {file.folderPath && (
@@ -347,35 +350,26 @@ const handleSendRating = async (stars: number) => {
                               <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.28)" }}>{formatBytes(file.size)}</span>
                             </div>
 
-                            {/* HANYA SATU TOMBOL UTAMA - SEPERTI LANDING PAGE */}
-                            {(() => {
-                              const isImage = file.mimeType.startsWith('image/');
-                              const isVideo = file.mimeType.startsWith('video/');
-                              return (
-                                <div style={{ display: "flex", gap: 8 }}>
-                                  <button
-                                    onClick={() => handleFileAction(file)}
-                                    style={{ flex: 1, background: "transparent", border: `1px solid ${isMedia ? 'rgba(198, 224, 0, 0.3)' : 'rgba(255,255,255,0.13)'}`, color: isMedia ? LIME : "#fff", fontWeight: 600, fontSize: "0.75rem", padding: "10px 8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
-                                  >
-                                    {isImage ? <><Eye size={13} /> Preview</> : isVideo ? <><Play size={13} /> Preview</> : <><Download size={13} /> Download File</>}
-                                  </button>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              {/* Tombol utama: Preview untuk media, Download untuk file biasa */}
+                              <button
+                                onClick={() => isMedia ? handlePreviewAction(file) : handleDownloadAction(file)}
+                                style={{ flex: 1, background: "transparent", border: `1px solid ${isMedia ? 'rgba(198, 224, 0, 0.3)' : 'rgba(255,255,255,0.13)'}`, color: isMedia ? LIME : "#fff", fontWeight: 600, fontSize: "0.75rem", padding: "10px 8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+                              >
+                                {isImage ? <><Eye size={13} /> Preview</> : isVideo ? <><Play size={13} /> Preview</> : <><Download size={13} /> Download File</>}
+                              </button>
 
-                                  {/* Tombol download untuk gambar DAN video */}
-                                  {(isImage || isVideo) && (
-                                    
-                                      <a href={file.webViewLink}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={() => handleDownloadAction(file)}
-                                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}
-                                      title="Download"
-                                    >
-                                      <Download size={13} />
-                                    </a>
-                                  )}
-                                </div>
-                              );
-                            })()}
+                              {/* Tombol download ikon — khusus media (foto & video) */}
+                              {isMedia && (
+                                <button
+                                  onClick={() => handleDownloadAction(file)}
+                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                                  title="Download"
+                                >
+                                  <Download size={13} />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -387,19 +381,12 @@ const handleSendRating = async (stars: number) => {
           )}
         </main>
       </div>
-      
 
-      {/* ── 🆕 POPUP ANONYMOUS RATING MODAL (STYLE LANDING PAGE) ── */}
+      {/* ── POPUP RATING MODAL ── */}
       {mounted && ratingFile && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', padding: 16 }}>
-          <div 
-            style={{ 
-              position: 'relative', width: '100%', maxWidth: 360, borderRadius: 16, backgroundColor: '#0f172a', 
-              border: '1px solid rgba(51, 65, 85, 0.8)', padding: 28, textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' 
-            }}
-          >
-            {/* Tombol X (Close) Pojok Kanan Atas */}
-            <button 
+          <div style={{ position: 'relative', width: '100%', maxWidth: 360, borderRadius: 16, backgroundColor: '#0f172a', border: '1px solid rgba(51, 65, 85, 0.8)', padding: 28, textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+            <button
               onClick={() => setRatingFile(null)}
               disabled={submittingRating}
               style={{ position: 'absolute', top: 16, right: 16, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 8 }}
@@ -408,19 +395,13 @@ const handleSendRating = async (stars: number) => {
             >
               <X size={18} />
             </button>
-
-            {/* Konten Efek */}
             <div style={{ fontSize: '2.5rem', marginBottom: 12, display: 'inline-block' }}>⭐</div>
-            
             <h3 className={lilitaOne.className} style={{ fontSize: '1.35rem', color: '#fff', letterSpacing: '0.02em', margin: '0 0 8px 0' }}>
               Bantu Rating Dong!
             </h3>
-            
             <p style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.5, margin: '0 0 24px 0', padding: '0 8px' }}>
               Gimana kualitas plugin barusan? Satu klik bintang lo sangat berharga buat kemajuan orang lain yang ingin download.
             </p>
-            
-            {/* Interaksi Bintang Dinamis (Sekali Klik Langsung Kirim) */}
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 24 }}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
@@ -442,9 +423,7 @@ const handleSendRating = async (stars: number) => {
                 </button>
               ))}
             </div>
-
-            {/* Tombol Skip */}
-            <button 
+            <button
               onClick={() => setRatingFile(null)}
               disabled={submittingRating}
               style={{ fontSize: '0.75rem', color: '#64748b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
@@ -458,42 +437,45 @@ const handleSendRating = async (stars: number) => {
       )}
 
       {/* MEDIA PREVIEW LIGHTBOX MODAL */}
-{previewFile && (
+      {previewFile && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(8px)', padding: 20 }}>
-        <div style={{ width: '100%', maxWidth: 960, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
-          <h3 style={{ fontWeight: 600, fontSize: '0.9rem', color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-            {previewFile.name}
-          </h3>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            {/* Tombol download di modal — muncul untuk semua tipe file */}
-            <button
-              onClick={() => handleDownloadAction(previewFile)}
-              style={{ background: RED, color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.75rem', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-            >
-              <Download size={13} /> Download
-            </button>
-            <button
-              onClick={() => setPreviewFile(null)}
-              style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', fontWeight: 600 }}
-            >
-              <X size={15} /> Tutup
-            </button>
+          <div style={{ width: '100%', maxWidth: 960, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+            <h3 style={{ fontWeight: 600, fontSize: '0.9rem', color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              {previewFile.name}
+            </h3>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              {/* Tombol Download di modal — track + rating + langsung download */}
+              <button
+                onClick={() => handleDownloadAction(previewFile)}
+                style={{ background: RED, color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.75rem', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+              >
+                <Download size={13} /> Download
+              </button>
+              <button
+                onClick={() => setPreviewFile(null)}
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', fontWeight: 600 }}
+              >
+                <X size={15} /> Tutup
+              </button>
+            </div>
           </div>
-        </div>
           <div style={{ width: '100%', maxWidth: 960, flex: 1, backgroundColor: '#090909', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {previewFile.mimeType.startsWith('image/') ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewFile.viewLink} alt={previewFile.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-            ) : <video src={previewFile.viewLink} controls autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+            ) : (
+              <video src={previewFile.viewLink} controls autoPlay style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            )}
           </div>
         </div>
       )}
+
       <style>{`
-      @keyframes spin { 
-        from { transform: rotate(0deg); } 
-        to { transform: rotate(360deg); } 
-      }
-    `}</style>
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
