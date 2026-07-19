@@ -63,29 +63,47 @@ export default function LandingPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // 📈 Fungsi reusable untuk trigger tracker download Firebase di background
+  const trackDownload = async (file: PopularPlugin) => {
+    try {
+      await fetch('/api/drive/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          fileId: file.id,
+          fileName: file.name,
+          fileCat: file.cat
+        })
+      });
+      console.log(`✅ Download tracked untuk: ${file.name}`);
+    } catch (err) {
+      console.error("Gagal tracking download root:", err);
+    }
+  };
+
 const handleFileAction = async (file: PopularPlugin) => {
-  // 📈 Pemicu counter download Firebase di background
-  try {
-    await fetch('/api/drive/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId: file.id })
-    });
-  } catch (err) {
-    console.error("Gagal tracking download root:", err);
-  }
+    const mime = file.mimeType || '';
+    const isImage = mime.startsWith('image/');
+    const isVideo = mime.startsWith('video/');
 
-  // Aksi preview atau download bawaan
-  const mime = file.mimeType || '';
-  const isImage = mime.startsWith('image/');
-  const isVideo = mime.startsWith('video/');
+    // 1. Tambah angka unduhan di UI secara instan (Optimistic Update)
+    setPopularPlugins((prevPlugins) =>
+      prevPlugins.map((p) =>
+        p.id === file.id ? { ...p, dl: String(parseInt(p.dl || '0') + 1) } : p
+      )
+    );
 
-  if (isImage || isVideo) {
-    setPreviewFile({ ...file });
-  } else {
-    window.open(file.webViewLink, '_blank');
-  }
-};
+    // 2. Jalankan tracker ke Firebase untuk kedua kondisi
+    await trackDownload(file);
+
+    // Jika berupa gambar/video, kita buka modal preview
+    if (isImage || isVideo) {
+      setPreviewFile({ ...file, dl: String(parseInt(file.dl || '0') + 1) });
+    } else {
+      // Jika berupa file zip/plugin biasa, langsung buka link unduhan
+      window.open(file.webViewLink, '_blank');
+    }
+  };
 
   return (
     <div style={{ fontFamily: BODY, background: "#111", color: "#f5f5f5", minHeight: "100vh", overflowX: "hidden" }}>
@@ -101,7 +119,7 @@ const handleFileAction = async (file: PopularPlugin) => {
         borderBottom: "1px solid rgba(255,255,255,0.05)"
       }}>
         <span style={{ fontFamily: DISPLAY, fontSize: "1.4rem", color: "#fff", letterSpacing: "0.04em" }}>
-          XZEARTY
+          TukangPlugin
         </span>
 
         {/* Desktop nav links */}
@@ -177,7 +195,7 @@ const handleFileAction = async (file: PopularPlugin) => {
             style={{
               marginTop: 12, background: RED, color: "#fff", fontWeight: 700,
               fontSize: "0.875rem", padding: "12px 20px", textDecoration: "none",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6 // 🛠️ FIX: justifyContext diganti ke justifyContent
             }}
           >
             <Download size={14} /> Unduh Plugin
@@ -196,7 +214,6 @@ const handleFileAction = async (file: PopularPlugin) => {
           }}
         />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(0,0,0,0.88) 45%, rgba(0,0,0,0.2) 100%)" }} />
-        {/* Gradient bawah untuk mobile readability */}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(17,17,17,0.7) 0%, transparent 50%)" }} />
 
         <div className="hero-content" style={{ position: "relative", zIndex: 10, padding: "60px 40px 80px", maxWidth: 700, width: "100%" }}>
@@ -275,7 +292,7 @@ const handleFileAction = async (file: PopularPlugin) => {
             style={{ display: "flex", gap: 32, flexWrap: "wrap" }}
           >
             {[
-              { v: loading ? "..." : stats.totalPlugins === 0 ? "150+" : `${stats.totalPlugins}+`, l: "File Plugin", c: RED },
+              { v: loading ? "..." : stats.totalPlugins === 0 ? "0" : `${stats.totalPlugins}`, l: "File Plugin", c: RED },
               { v: loading ? "..." : `${stats.totalCategories}`, l: "Kategori Folder", c: LIME },
               { v: "100%", l: "Aman Dijalankan", c: "#fff" },
             ].map(s => (
@@ -341,7 +358,7 @@ const handleFileAction = async (file: PopularPlugin) => {
 
           {loading && (
             <div style={{ display: "flex", justifyContent: "center", padding: "40px 0", color: "rgba(255,255,255,0.4)" }}>
-              <Loader2 className="animate-spin" size={24} />
+              <Loader2 style={{ animation: "spin 1s linear infinite" }} size={24} />
             </div>
           )}
 
@@ -352,16 +369,16 @@ const handleFileAction = async (file: PopularPlugin) => {
                 const isMedia = mime.startsWith('image/') || mime.startsWith('video/');
 
                 return (
-                  <div
-                    key={p.id}
-                    data-aos="fade-up"
-                    data-aos-delay={(idx % 3) * 100}
-                    className="plugin-card"
-                    style={{
-                      background: "#111", padding: "20px", display: "flex", flexDirection: "column",
-                      justifyContent: "space-between", transition: "all 0.25s"
-                    }}
-                  >
+                    <div
+                      key={`${p.id}-${p.dl}`} // 🛠️ FIX: Menyertakan jumlah dl pada key memaksa React me-render ulang card dengan nilai download terbaru saat posisinya bergeser
+                      data-aos="fade-up"
+                      data-aos-delay={(idx % 3) * 100}
+                      className="plugin-card"
+                      style={{
+                        background: "#111", padding: "20px", display: "flex", flexDirection: "column",
+                        justifyContent: "space-between", transition: "all 0.25s"
+                      }}
+                    >
                     <div>
                       <div
                         onClick={() => handleFileAction(p)}
@@ -391,7 +408,6 @@ const handleFileAction = async (file: PopularPlugin) => {
                         <h3
                           onClick={() => handleFileAction(p)}
                           style={{ fontWeight: 600, fontSize: "0.9rem", color: "#fff", margin: 0, lineHeight: 1.3, cursor: "pointer" }}
-                          className="line-clamp-2 hover:underline hover:text-red-400 transition-colors"
                         >
                           {p.name}
                         </h3>
@@ -436,6 +452,7 @@ const handleFileAction = async (file: PopularPlugin) => {
                             href={p.webViewLink}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={() => trackDownload(p)} 
                             className="download-icon-btn"
                             style={{
                               background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
@@ -567,6 +584,17 @@ const handleFileAction = async (file: PopularPlugin) => {
                 href={previewFile.webViewLink}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={async () => {
+                  await trackDownload(previewFile);
+                  // Tambah unduhan di UI utama (Landing Page) secara live
+                  setPopularPlugins((prevPlugins) =>
+                    prevPlugins.map((p) =>
+                      p.id === previewFile.id ? { ...p, dl: String(parseInt(p.dl || '0') + 1) } : p
+                    )
+                  );
+                  // Tambah unduhan di state modal preview itu sendiri agar angkanya ikut berubah di dalam modal
+                  setPreviewFile((prev) => prev ? { ...prev, dl: String(parseInt(prev.dl || '0') + 1) } : null);
+                }}
                 className="btn-red-hover"
                 style={{
                   background: RED, color: '#fff', textDecoration: 'none', fontWeight: 600,
@@ -653,44 +681,37 @@ const handleFileAction = async (file: PopularPlugin) => {
         .text-link-hover:hover { color: #ff5252 !important; }
         .social-card:hover {
           background: #252525 !important;
-          border-color: rgba(255,255,255,0.12) !important;
+          border-color: rgba(255,255,255,0.04) !important;
           transform: translateY(-4px);
           box-shadow: 0 12px 24px rgba(0,0,0,0.4);
         }
         .social-card:hover .social-action-text { transform: translateX(4px); }
 
-        /* ── RESPONSIVE: TABLET (max 768px) ── */
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* ── RESPONSIVE ── */
         @media (max-width: 768px) {
           .nav-links-desktop { display: none !important; }
           .nav-cta-desktop { display: none !important; }
           .hamburger { display: flex !important; }
-
           .hero-content { padding: 80px 24px 60px !important; }
-
           .hero-buttons { flex-direction: column !important; }
           .hero-buttons a, .hero-buttons a + a { width: 100%; justify-content: center; }
-
           .hero-stats { gap: 24px !important; }
-
           .features-grid { grid-template-columns: 1fr !important; }
           .plugins-grid { grid-template-columns: 1fr 1fr !important; }
           .socials-grid { grid-template-columns: 1fr 1fr !important; }
         }
 
-        /* ── RESPONSIVE: MOBILE (max 480px) ── */
         @media (max-width: 480px) {
           .plugins-grid { grid-template-columns: 1fr !important; }
           .socials-grid { grid-template-columns: 1fr !important; }
-
           .hero-stats { flex-direction: row; flex-wrap: wrap; gap: 20px !important; }
-
           .modal-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
           .modal-header > div { width: 100%; justify-content: flex-end; }
-
           .footer-bar { flex-direction: column; text-align: center; }
         }
 
-        /* ── REDUCED MOTION ── */
         @media (prefers-reduced-motion: reduce) {
           *, *::before, *::after { transition: none !important; animation: none !important; }
           [data-aos] { opacity: 1 !important; transform: none !important; }

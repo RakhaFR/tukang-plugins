@@ -14,9 +14,11 @@ interface DriveItem {
   name: string;
   mimeType: string;
   size?: string;
-  webViewLink: string;
-  viewLink?: string;
+  webViewLink: string; // Di backend, ini sudah berisi link direct download Google Drive
+  viewLink: string;    // Endpoint untuk streaming image/video (/api/drive/view?fileId=...)
   folderPath?: string;
+  dl: number;          // Menggunakan real data/fallback dari API backend
+  rating: string;      // Menggunakan real data/fallback dari API backend
 }
 
 export default function PluginsDashboard() {
@@ -89,28 +91,28 @@ export default function PluginsDashboard() {
     fetchFolderContent(previousFolder ? previousFolder.id : '');
   };
 
-const handleFileAction = async (file: DriveItem) => {
-  // 📈 Pemicu counter download Firebase di background
-  try {
-    await fetch('/api/drive/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId: file.id })
-    });
-  } catch (err) {
-    console.error("Gagal tracking download plugins:", err);
-  }
+  const handleFileAction = async (file: DriveItem) => {
+    // 📈 Pemicu counter download Firebase di background
+    try {
+      await fetch('/api/drive/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: file.id })
+      });
+    } catch (err) {
+      console.error("Gagal tracking download plugins:", err);
+    }
 
-  // Aksi preview atau download bawaan
-  const isImage = file.mimeType.startsWith('image/');
-  const isVideo = file.mimeType.startsWith('video/');
-  
-  if (isImage || isVideo) {
-    setPreviewFile(file);
-  } else {
-    window.open(file.webViewLink, '_blank');
-  }
-};
+    // Aksi preview atau download bawaan
+    const isImage = file.mimeType.startsWith('image/');
+    const isVideo = file.mimeType.startsWith('video/');
+    
+    if (isImage || isVideo) {
+      setPreviewFile(file);
+    } else {
+      window.open(file.webViewLink, '_blank');
+    }
+  };
 
   const formatBytes = (bytes?: string) => {
     if (!bytes) return 'Under 1 KB';
@@ -120,13 +122,6 @@ const handleFileAction = async (file: DriveItem) => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(num) / Math.log(k));
     return parseFloat((num / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
-  const getItemStats = (name: string) => {
-    const weight = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const downloads = Math.floor((weight % 60) + 5);
-    const rating = (4.2 + ((weight % 8) * 0.1)).toFixed(1);
-    return { downloads, rating };
   };
 
   const resetToRoot = () => {
@@ -139,7 +134,7 @@ const handleFileAction = async (file: DriveItem) => {
   return (
     <div style={{ fontFamily: BODY, background: "#111", color: "#f5f5f5", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
 
-      {/* ── MOBILE TOPBAR — hanya tampil di mobile ── */}
+      {/* ── MOBILE TOPBAR ── */}
       {isMobile && (
         <header style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -168,7 +163,7 @@ const handleFileAction = async (file: DriveItem) => {
         </header>
       )}
 
-      {/* ── OVERLAY — klik untuk nutup sidebar di mobile ── */}
+      {/* ── OVERLAY ── */}
       {isMobile && sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -181,10 +176,7 @@ const handleFileAction = async (file: DriveItem) => {
 
       <div style={{ display: "flex", flex: 1, position: "relative" }}>
 
-        {/* ── SIDEBAR ──
-            Desktop: static, selalu tampil
-            Mobile: fixed drawer dari kiri, muncul kalau sidebarOpen=true
-        ── */}
+        {/* ── SIDEBAR ── */}
         <aside style={{
           width: 260,
           background: "#161616",
@@ -194,7 +186,6 @@ const handleFileAction = async (file: DriveItem) => {
           padding: 24,
           justifyContent: "space-between",
           flexShrink: 0,
-          // Mobile: jadi drawer fixed
           ...(isMobile ? {
             position: "fixed",
             top: 0,
@@ -209,7 +200,6 @@ const handleFileAction = async (file: DriveItem) => {
           })
         }}>
           <div>
-            {/* Logo di dalam sidebar — desktop always show, mobile always show (karena topbar pake X button) */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 40, padding: "0 8px" }}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: RED }} />
               <span style={{ fontFamily: DISPLAY, fontSize: "1.3rem", color: "#fff", letterSpacing: "0.04em" }}>
@@ -370,7 +360,6 @@ const handleFileAction = async (file: DriveItem) => {
                   </h2>
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 1, background: "rgba(255,255,255,0.05)" }}>
                     {files.map((file) => {
-                      const stats = getItemStats(file.name);
                       const nameParts = file.name.split('.');
                       const ext = nameParts.length > 1 ? nameParts.pop()?.toUpperCase() : 'ASSET';
                       const isMedia = file.mimeType.startsWith('image/') || file.mimeType.startsWith('video/');
@@ -411,8 +400,8 @@ const handleFileAction = async (file: DriveItem) => {
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 5, color: "rgba(255,255,255,0.35)", fontSize: "0.75rem" }}>
                                 <Star size={10} style={{ color: LIME, fill: LIME }} />
-                                <span>{stats.rating}</span>
-                                <span style={{ color: "rgba(255,255,255,0.2)" }}>({stats.downloads} unduh)</span>
+                                <span>{file.rating}</span>
+                                <span style={{ color: "rgba(255,255,255,0.2)" }}>({file.dl} unduh)</span>
                               </div>
                               <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.28)" }}>
                                 {formatBytes(file.size)}
@@ -447,6 +436,15 @@ const handleFileAction = async (file: DriveItem) => {
                               {isMedia && (
                                 <a
                                   href={file.webViewLink}
+                                  onClick={async () => {
+                                    try {
+                                      await fetch('/api/drive/track', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ fileId: file.id })
+                                      });
+                                    } catch (err) { console.error(err); }
+                                  }}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   style={{
@@ -503,6 +501,15 @@ const handleFileAction = async (file: DriveItem) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, width: isMobile ? "100%" : "auto", justifyContent: isMobile ? "flex-end" : "flex-start" }}>
               <a
                 href={previewFile.webViewLink}
+                onClick={async () => {
+                  try {
+                    await fetch('/api/drive/track', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ fileId: previewFile.id })
+                    });
+                  } catch (err) { console.error(err); }
+                }}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -510,7 +517,7 @@ const handleFileAction = async (file: DriveItem) => {
                   fontSize: '0.75rem', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6
                 }}
               >
-                <Download size={13} /> Download (.zip)
+                <Download size={13} /> Download File
               </a>
               <button
                 onClick={() => setPreviewFile(null)}
