@@ -44,6 +44,11 @@ export default function LandingPage() {
   const [previewFile, setPreviewFile] = useState<PopularPlugin | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // 🆕 State untuk mengontrol jalannya Popup Rating Modal
+  const [showRateModal, setShowRateModal] = useState(false);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [hoveredStar, setHoveredStar] = useState<number>(0);
+
   useEffect(() => {
     const initAOS = async () => {
       const AOS = (await import('aos')).default;
@@ -81,7 +86,7 @@ export default function LandingPage() {
     }
   };
 
-const handleFileAction = async (file: PopularPlugin) => {
+  const handleFileAction = async (file: PopularPlugin) => {
     const mime = file.mimeType || '';
     const isImage = mime.startsWith('image/');
     const isVideo = mime.startsWith('video/');
@@ -96,12 +101,42 @@ const handleFileAction = async (file: PopularPlugin) => {
     // 2. Jalankan tracker ke Firebase untuk kedua kondisi
     await trackDownload(file);
 
+    // 3. 🆕 Trigger Pemicu Popup Modal Rating (Deteksi anonymous via localStorage)
+    const hasRated = localStorage.getItem(`rated_${file.id}`);
+    if (!hasRated) {
+      setTimeout(() => {
+        setActiveFileId(file.id);
+        setShowRateModal(true);
+      }, 1500); // Muncul setelah 1.5 detik agar download berjalan lancar terlebih dahulu
+    }
+
     // Jika berupa gambar/video, kita buka modal preview
     if (isImage || isVideo) {
       setPreviewFile({ ...file, dl: String(parseInt(file.dl || '0') + 1) });
     } else {
       // Jika berupa file zip/plugin biasa, langsung buka link unduhan
       window.open(file.webViewLink, '_blank');
+    }
+  };
+
+  // 🆕 Fungsi untuk mengirim nilai bintang ke backend baru
+  const handleSendRating = async (starRating: number) => {
+    if (!activeFileId) return;
+    
+    try {
+      await fetch('/api/drive/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: activeFileId, stars: starRating })
+      });
+      
+      localStorage.setItem(`rated_${activeFileId}`, 'true');
+    } catch (err) {
+      console.error("Gagal mengirim rating:", err);
+    } finally {
+      setShowRateModal(false);
+      setActiveFileId(null);
+      setHoveredStar(0);
     }
   };
 
@@ -195,7 +230,7 @@ const handleFileAction = async (file: PopularPlugin) => {
             style={{
               marginTop: 12, background: RED, color: "#fff", fontWeight: 700,
               fontSize: "0.875rem", padding: "12px 20px", textDecoration: "none",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6 // 🛠️ FIX: justifyContext diganti ke justifyContent
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6
             }}
           >
             <Download size={14} /> Unduh Plugin
@@ -370,7 +405,7 @@ const handleFileAction = async (file: PopularPlugin) => {
 
                 return (
                     <div
-                      key={`${p.id}-${p.dl}`} // 🛠️ FIX: Menyertakan jumlah dl pada key memaksa React me-render ulang card dengan nilai download terbaru saat posisinya bergeser
+                      key={`${p.id}-${p.dl}`}
                       data-aos="fade-up"
                       data-aos-delay={(idx % 3) * 100}
                       className="plugin-card"
@@ -452,7 +487,7 @@ const handleFileAction = async (file: PopularPlugin) => {
                             href={p.webViewLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={() => trackDownload(p)} 
+                            onClick={() => handleFileAction(p)} 
                             className="download-icon-btn"
                             style={{
                               background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
@@ -557,7 +592,7 @@ const handleFileAction = async (file: PopularPlugin) => {
       {/* ── FOOTER ── */}
       <footer className="footer-bar" style={{
         background: "#0d0d0d", padding: "24px 24px",
-        display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10,
+        display: "flex", alignItems: "center", center: "space-between", flexWrap: "wrap", gap: 10,
       }}>
         <span style={{ fontFamily: DISPLAY, fontSize: "1.1rem", color: "#fff", letterSpacing: "0.04em" }}>TukangPlugin</span>
         <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.28)", margin: 0 }}>
@@ -586,13 +621,11 @@ const handleFileAction = async (file: PopularPlugin) => {
                 rel="noopener noreferrer"
                 onClick={async () => {
                   await trackDownload(previewFile);
-                  // Tambah unduhan di UI utama (Landing Page) secara live
                   setPopularPlugins((prevPlugins) =>
                     prevPlugins.map((p) =>
                       p.id === previewFile.id ? { ...p, dl: String(parseInt(p.dl || '0') + 1) } : p
                     )
                   );
-                  // Tambah unduhan di state modal preview itu sendiri agar angkanya ikut berubah di dalam modal
                   setPreviewFile((prev) => prev ? { ...prev, dl: String(parseInt(prev.dl || '0') + 1) } : null);
                 }}
                 className="btn-red-hover"
@@ -631,8 +664,74 @@ const handleFileAction = async (file: PopularPlugin) => {
         </div>
       )}
 
+      {/* ── 🆕 POPUP ANONYMOUS RATING MODAL (RESPONSIVE Tailwind) ── */}
+      {showRateModal && activeFileId && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in animate-duration-200">
+          <div 
+            className="relative w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800/80 p-6 sm:p-8 text-center shadow-2xl transition-all scale-up-center"
+            style={{ fontFamily: BODY }}
+          >
+            {/* Tombol X (Close) Pojok Kanan Atas */}
+            <button 
+              onClick={() => { setShowRateModal(false); setActiveFileId(null); }}
+              className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 transition-colors p-1 rounded-lg hover:bg-slate-800"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Konten */}
+            <div className="text-3xl sm:text-4xl mb-3 animate-bounce">⭐</div>
+            
+            <h3 style={{ fontFamily: DISPLAY }} className="text-xl sm:text-2xl text-white tracking-wide mb-2">
+              Bantu Rating Dong!
+            </h3>
+            
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed mb-6 px-2">
+              Gimana kualitas plugin barusan? Satu klik bintang lo sangat berharga buat kemajuan orang lain yang ingin download.
+            </p>
+            
+            {/* Interaksi Bintang Dinamis */}
+            <div className="flex justify-center items-center gap-2 sm:gap-3 mb-6">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onMouseEnter={() => setHoveredStar(star)}
+                  onMouseLeave={() => setHoveredStar(0)}
+                  onClick={() => handleSendRating(star)}
+                  className="group relative text-3xl sm:text-4xl transition-all duration-150 transform hover:scale-125 focus:outline-none"
+                  style={{
+                    color: star <= (hoveredStar || 0) ? '#FFC107' : 'rgba(255,255,255,0.15)',
+                    textShadow: star <= (hoveredStar || 0) ? '0 0 12px rgba(255,193,7,0.4)' : 'none'
+                  }}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+
+            {/* Tombol Skip */}
+            <button 
+              onClick={() => { setShowRateModal(false); setActiveFileId(null); }}
+              className="text-xs text-slate-500 hover:text-slate-400 underline transition-colors focus:outline-none"
+            >
+              Nanti aja, makasih
+            </button>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+        /* ── ANIMASI BARU (MODAL RATING) ── */
+        .animate-fade-in {
+          animation: fadeIn 0.25s ease-out forwards;
+        }
+        .scale-up-center {
+          animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleUp { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
         /* ── HAMBURGER ── */
         .ham-line {
