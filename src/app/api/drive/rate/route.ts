@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Transaction } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const fileRef = db.collection('plugin_stats').doc(fileId);
     
     // Gunakan Firestore Transaction supaya kalkulasi matematisnya aman dari bentrokan user lain
-    await db.runTransaction(async (transaction) => {
+    await db.runTransaction(async (transaction: Transaction) => {
       const sfDoc = await transaction.get(fileRef);
       
       let newTotalStars = stars;
