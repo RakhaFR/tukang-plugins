@@ -98,22 +98,24 @@ export async function GET() {
     popularPlugins.sort((a, b) => parseInt(b.dl) - parseInt(a.dl));
     const topPopular = popularPlugins.slice(0, 6);
 
+    // Ambil jumlah visits
     const visitsDoc = await db.collection('site_stats').doc('visits').get();
-  const visitsCount = visitsDoc.exists ? (visitsDoc.data()?.count || 0) : 0;
-  // Hitung total download dari semua dokumen di plugin_stats
-  const totalDownloads = Array.from(firestoreDataMap.values()).reduce(
-    (sum, data) => sum + (data.download_count || 0), 0
-  );
+    const visitsCount = visitsDoc.exists ? (visitsDoc.data()?.count || 0) : 0;
 
-  return NextResponse.json({
-    success: true,
-    stats: {
-      totalPlugins: actualTotalFiles,
-      totalCategories: totalCategories || 3,
-      totalDownloads: totalDownloads,
-    },
-    popularPlugins: topPopular
-  });
+    const totalDownloads = Array.from(firestoreDataMap.values()).reduce(
+      (sum, data) => sum + (data.download_count || 0), 0
+    );
+
+    return NextResponse.json({
+      success: true,
+      stats: {
+        totalPlugins: actualTotalFiles,
+        totalCategories: totalCategories || 3,
+        totalDownloads,
+        visits: visitsCount,
+      },
+      popularPlugins: topPopular
+    });
 
   } catch (error: any) {
     console.error('Error fetching landing stats:', error);
