@@ -11,4 +11,4 @@ const auth = new JWT({
   scopes: ['https://www.googleapis.com/auth/drive.readonly'],
 });
 
-export const drive = google.drive({ version: 'v3', auth });
+export const drive = google.drive({ version: 'v3', auth: auth as any });
