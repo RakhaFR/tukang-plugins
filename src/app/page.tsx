@@ -38,6 +38,7 @@ interface PopularPlugin {
 }
 
 export default function LandingPage() {
+  const [pageReady, setPageReady] = useState(false);
   const [stats, setStats] = useState({ totalPlugins: 0, totalCategories: 0, totalDownloads: 0, visits: 0 });
   const [popularPlugins, setPopularPlugins] = useState<PopularPlugin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,30 +71,34 @@ export default function LandingPage() {
     }, 16);
   };
 
-  useEffect(() => {
-    const initAOS = async () => {
-      const AOS = (await import('aos')).default;
-      AOS.init({ duration: 800, once: true, easing: 'ease-out-quad' });
-    };
-    initAOS();
+useEffect(() => {
+  const initAOS = async () => {
+    const AOS = (await import('aos')).default;
+    AOS.init({ duration: 800, once: true, easing: 'ease-out-quad' });
+  };
 
-    // Track visit ke Firestore
-    fetch('/api/drive/visit', { method: 'POST' }).catch(() => {});
+  // Preload hero image dulu sebelum tampilkan halaman
+  const img = new Image();
+  img.src = '/hero.png';
+  img.onload = () => setPageReady(true);
+  img.onerror = () => setPageReady(true); // Tetap lanjut meski gagal load
 
-    fetch('/api/drive/stats')
-      .then((res) => res.json())
-      .then((resData) => {
-        if (resData.success) {
-          setStats(resData.stats);
-          setPopularPlugins(resData.popularPlugins);
-          animateCount(resData.stats.totalPlugins, setDisplayPlugins);
-          animateCount(resData.stats.totalDownloads, setDisplayDownloads);
-          animateCount(resData.stats.visits, setDisplayVisits);
-        }
-      })
-      .catch((err) => console.error('Gagal memuat statistik landing:', err))
-      .finally(() => setLoading(false));
-  }, []);
+  initAOS();
+  fetch('/api/drive/visit', { method: 'POST' }).catch(() => {});
+  fetch('/api/drive/stats')
+    .then((res) => res.json())
+    .then((resData) => {
+      if (resData.success) {
+        setStats(resData.stats);
+        setPopularPlugins(resData.popularPlugins);
+        animateCount(resData.stats.totalPlugins, setDisplayPlugins);
+        animateCount(resData.stats.totalDownloads, setDisplayDownloads);
+        animateCount(resData.stats.visits, setDisplayVisits);
+      }
+    })
+    .catch((err) => console.error('Gagal memuat statistik landing:', err))
+    .finally(() => setLoading(false));
+}, []);
 
   const trackDownload = async (file: PopularPlugin) => {
     try {
@@ -160,7 +165,30 @@ export default function LandingPage() {
 
   return (
     <div style={{ fontFamily: BODY, background: "#111", color: "#f5f5f5", minHeight: "100vh", overflowX: "hidden" }}>
-
+            {/* ── LOADING SCREEN ── */}
+    {!pageReady && (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: '#111',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 20,
+        animation: 'fadeOut 0.4s ease forwards',
+        animationDelay: pageReady ? '0s' : '999s'
+      }}>
+        <span style={{ fontFamily: DISPLAY, fontSize: '2rem', color: '#fff', letterSpacing: '0.04em' }}>
+          Tukang<span style={{ color: '#C6E000' }}>Plugin</span>
+        </span>
+        <div style={{ width: 180, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', background: '#E53935',
+            animation: 'loadBar 1.2s ease-in-out forwards'
+          }} />
+        </div>
+        <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          Memuat aset...
+        </span>
+      </div>
+    )}
       {/* ── NAV ── */}
       <nav className="nav-bar" style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
@@ -489,6 +517,15 @@ export default function LandingPage() {
         .social-card:hover { background: #252525 !important; border-color: rgba(255,255,255,0.04) !important; transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.4); }
         .social-card:hover .social-action-text { transform: translateX(4px); }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        /* ── LOADING SCREEN ── */
+        @keyframes loadBar {
+          from { width: 0%; }
+          to { width: 100%; }
+        }
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; pointer-events: none; }
+        }
         @media (max-width: 768px) {
           .nav-links-desktop { display: none !important; }
           .nav-cta-desktop { display: none !important; }

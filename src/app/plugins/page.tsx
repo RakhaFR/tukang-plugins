@@ -47,7 +47,6 @@ export default function PluginsDashboard() {
 
   // ── STATE UNTUK POP-UP RATING ──
   const [ratingFile, setRatingFile] = useState<DriveItem | null>(null);
-  const [selectedStars, setSelectedStars] = useState<number>(5);
   const [submittingRating, setSubmittingRating] = useState<boolean>(false);
 
   useEffect(() => {
@@ -111,54 +110,57 @@ export default function PluginsDashboard() {
     fetchFolderContent(previousFolder ? previousFolder.id : '');
   };
   const [hoveredStar, setHoveredStar] = useState<number>(0);
-  const handleFileAction = async (file: DriveItem) => {
-    // 1. Jalankan tracking download ke server
-    try {
-      await fetch('/api/drive/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: file.id })
-      });
-    } catch (err) {
-      console.error("Gagal tracking download plugins:", err);
-    }
+const handleFileAction = async (file: DriveItem) => {
+  try {
+    await fetch('/api/drive/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId: file.id })
+    });
+  } catch (err) {
+    console.error("Gagal tracking download plugins:", err);
+  }
 
-    // 2. Buka file atau set preview media
-    const isImage = file.mimeType.startsWith('image/');
-    const isVideo = file.mimeType.startsWith('video/');
-    
-    if (isImage || isVideo) {
-      setPreviewFile(file);
+  const isImage = file.mimeType.startsWith('image/');
+  const isVideo = file.mimeType.startsWith('video/');
+  
+  if (isImage || isVideo) {
+    setPreviewFile(file);
+  } else {
+    window.open(file.webViewLink, '_blank');
+  }
+
+  // ✅ Cek localStorage dulu sebelum tampilkan rating
+  const hasRated = localStorage.getItem(`rated_${file.id}`);
+  if (!hasRated) {
+    setTimeout(() => setRatingFile(file), 1500);
+  }
+};
+
+const handleSendRating = async (stars: number) => {
+  if (!ratingFile) return;
+  setSubmittingRating(true);
+  try {
+    const response = await fetch('/api/drive/rate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId: ratingFile.id, stars: stars })
+    });
+    const resData = await response.json();
+    if (resData.success) {
+      // ✅ Simpan ke localStorage agar tidak muncul lagi
+      localStorage.setItem(`rated_${ratingFile.id}`, 'true');
+      fetchFolderContent(currentFolderId || '');
+      setRatingFile(null);
     } else {
-      window.open(file.webViewLink, '_blank');
+      alert("Gagal menyimpan rating.");
     }
-
-    // 3. SEGERA MUNCULKAN POP-UP RATING SECARA OTOMATIS
-    setRatingFile(file); 
-  };
-
-  const handleSendRating = async (stars: number) => {
-    if (!ratingFile) return;
-    setSubmittingRating(true);
-    try {
-      const response = await fetch('/api/drive/rate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: ratingFile.id, stars: stars })
-      });
-      const resData = await response.json();
-      if (resData.success) {
-        fetchFolderContent(currentFolderId || '');
-        setRatingFile(null);
-      } else {
-        alert("Gagal menyimpan rating.");
-      }
-    } catch (err) {
-      console.error("Error submitting rating:", err);
-    } finally {
-      setSubmittingRating(false);
-    }
-  };
+  } catch (err) {
+    console.error("Error submitting rating:", err);
+  } finally {
+    setSubmittingRating(false);
+  }
+};
 
   const formatBytes = (bytes?: string) => {
     if (!bytes) return 'Under 1 KB';
@@ -434,6 +436,12 @@ export default function PluginsDashboard() {
           </div>
         </div>
       )}
+      <style>{`
+      @keyframes spin { 
+        from { transform: rotate(0deg); } 
+        to { transform: rotate(360deg); } 
+      }
+    `}</style>
     </div>
   );
 }
