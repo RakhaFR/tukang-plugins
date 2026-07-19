@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${headingFont.variable} ${bodyFont.variable}`}>
+    <html lang="en" className={`${headingFont.variable} ${bodyFont.variable}`} style={{ scrollBehavior: 'smooth' }}>
       <body className="bg-gray-900 text-gray-100 font-body antialiased">
         {children}
       </body>
