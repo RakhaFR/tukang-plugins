@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { db } from '@/lib/firebaseAdmin'; 
-import { FieldPath } from 'firebase-admin/firestore'; //  Ganti dengan FieldPath
+import { FieldPath, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 const auth = new google.auth.GoogleAuth({
   credentials: {
@@ -34,16 +34,15 @@ export async function GET(request: NextRequest) {
       const foundFiles = response.data.files || [];
       const fileIds = foundFiles.map(f => f.id).filter(Boolean);
 
-      // 🌟 OPTIMASI BATCH: Ambil semua data stats dari Firestore sekaligus dalam 1 query
       const statsMap: Record<string, any> = {};
       if (fileIds.length > 0) {
         try {
-          // Maksimal operator 'in' di Firestore adalah 30 item (pas dengan pageSize kita)
-        const statsSnap = await db.collection('plugin_stats')
-          .where(FieldPath.documentId(), 'in', fileIds.slice(0, 30))
-          .get();
+          const statsSnap = await db.collection('plugin_stats')
+            .where(FieldPath.documentId(), 'in', fileIds.slice(0, 30))
+            .get();
           
-          statsSnap.forEach(doc => {
+          // ✅ FIX 1: Tambah tipe QueryDocumentSnapshot
+          statsSnap.forEach((doc: QueryDocumentSnapshot) => {
             statsMap[doc.id] = doc.data();
           });
         } catch (err) {
@@ -70,7 +69,6 @@ export async function GET(request: NextRequest) {
             ? `${file.webContentLink}&confirm=t` 
             : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`;
 
-          // Ambil dari map lokal, gak nembak koneksi Firestore lagi
           const fileData = statsMap[file.id];
           const dlCount = fileData?.download_count || 0;
           const fileRating = fileData?.rating?.toFixed(1) || "4.5";
@@ -108,11 +106,9 @@ export async function GET(request: NextRequest) {
     const validFiles = items.filter(item => item.mimeType !== 'application/vnd.google-apps.folder');
     const fileIds = validFiles.map(f => f.id).filter(Boolean);
 
-    // 🌟 OPTIMASI BATCH: Ambil semua data stats dari Firestore sekaligus dalam 1 query
     const statsMap: Record<string, any> = {};
     if (fileIds.length > 0) {
       try {
-        // Antisipasi kalau isi folder lebih dari 30 file, kita pecah chunk-nya biar gak limit Firestore
         const chunks = [];
         for (let i = 0; i < fileIds.length; i += 30) {
           chunks.push(fileIds.slice(i, i + 30));
@@ -120,8 +116,12 @@ export async function GET(request: NextRequest) {
 
         await Promise.all(
           chunks.map(async (chunk) => {
-            const statsSnap = await db.collection('plugin_stats').where(FieldPath.documentId(), 'in', chunk).get();
-            statsSnap.forEach(doc => {
+            const statsSnap = await db.collection('plugin_stats')
+              .where(FieldPath.documentId(), 'in', chunk)
+              .get();
+
+            // ✅ FIX 2: Tambah tipe QueryDocumentSnapshot
+            statsSnap.forEach((doc: QueryDocumentSnapshot) => {
               statsMap[doc.id] = doc.data();
             });
           })
@@ -136,7 +136,6 @@ export async function GET(request: NextRequest) {
         ? `${file.webContentLink}&confirm=t` 
         : `https://docs.google.com/uc?export=download&id=${file.id}&confirm=t`;
 
-      // Ambil dari map lokal, anti-blocking dan ngebut banget
       const fileData = statsMap[file.id];
       const dlCount = fileData?.download_count || 0;
       const fileRating = fileData?.rating?.toFixed(1) || "4.5";
