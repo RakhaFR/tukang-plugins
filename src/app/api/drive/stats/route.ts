@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { drive } from '@/lib/googleDrive';
 import { db } from '@/lib/firebaseAdmin';
+import { drive_v3 } from 'googleapis';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,33 +25,31 @@ export async function GET() {
       pageSize: 1000,
     });
 
-    const rootItems = response.data.files || [];
+    // ✅ FIX: cast eksplisit ke tipe yang benar
+    const rootItems: drive_v3.Schema$File[] = (response.data as drive_v3.Schema$FileList).files || [];
     const totalCategories = rootItems.filter(item => item.mimeType === 'application/vnd.google-apps.folder').length;
     const allFilesAtRoot = rootItems.filter(item => item.mimeType !== 'application/vnd.google-apps.folder');
 
-    const displayFiles = allFilesAtRoot.length > 0 ? allFilesAtRoot : (totalFilesResponse.data.files || []);
+    const allFiles: drive_v3.Schema$File[] = (totalFilesResponse.data as drive_v3.Schema$FileList).files || [];
+    const displayFiles = allFilesAtRoot.length > 0 ? allFilesAtRoot : allFiles;
     const actualTotalFiles = allFilesAtRoot.length > 0 ? allFilesAtRoot.length : displayFiles.length;
 
-    // 2. AMBIL DATA MURNI DARI FIRESTORE (Ganti ke plugin_stats agar sinkron!)
+    // 2. Ambil data dari Firestore
     const pluginsSnapshot = await db.collection('plugin_stats').get();
-    const firestoreDataMap = new Map();
+    const firestoreDataMap = new Map<string, any>();
     
     pluginsSnapshot.forEach((doc) => {
       const data = doc.data();
-      // Karena dashboard menggunakan doc.id sebagai Google Drive ID, 
-      // kita maps langsung menggunakan doc.id
       firestoreDataMap.set(doc.id, data);
     });
 
-    // Log untuk mastiin data dari plugin_stats sekarang masuk
     console.log("=== ISI DATA MAPPED FIRESTORE VIA PLUGIN_STATS ===");
     console.log(Array.from(firestoreDataMap.keys()));
 
-    // 3. Mapping data Drive & Gabungkan dengan isi Firestore secara akurat
-    let popularPlugins = displayFiles.map((file: any, index: number) => {
-      const dbData = firestoreDataMap.get(file.id) || {};
+    // 3. Mapping data Drive & Gabungkan dengan Firestore
+    let popularPlugins = displayFiles.map((file: drive_v3.Schema$File, index: number) => {
+      const dbData = file.id ? firestoreDataMap.get(file.id) || {} : {};
 
-      // 🛠️ FIX MURNI: Jika tidak ada di DB, download_count = 0, rating default = 5.0 atau sesuai DB
       const realDownloads = dbData.download_count !== undefined ? dbData.download_count : 0;
       const realRating = dbData.rating !== undefined ? dbData.rating.toFixed(1) : '5.0';
 
@@ -68,7 +67,6 @@ export async function GET() {
         };
       }
 
-      // Format Ukuran File
       const fileSizeKB = file.size ? Math.floor(parseInt(file.size) / 1024) : 0;
       let formattedSize = '0 KB';
       if (fileSizeKB > 1024) {
@@ -95,7 +93,7 @@ export async function GET() {
       };
     });
 
-    // 4. Urutkan berdasarkan download terbanyak & potong 6 teratas
+    // 4. Urutkan & potong 6 teratas
     popularPlugins.sort((a, b) => parseInt(b.dl) - parseInt(a.dl));
     const topPopular = popularPlugins.slice(0, 6);
 
