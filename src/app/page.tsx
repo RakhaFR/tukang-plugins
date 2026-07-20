@@ -129,23 +129,48 @@ export default function LandingPage() {
   };
 
   // Download — track + nambah counter + munculin rating
-const handleDownloadAction = async (file: PopularPlugin) => {
-  setPopularPlugins((prev) =>
-    prev.map((p) =>
-      p.id === file.id ? { ...p, dl: String(parseInt(p.dl || '0') + 1) } : p
-    )
-  );
-  await trackDownload(file);
-  const hasRated = localStorage.getItem(`rated_${file.id}`);
-  if (!hasRated) {
-    setTimeout(() => {
-      setActiveFileId(file.id);
-      setShowRateModal(true);
-    }, 1500);
-  }
-  // Semua tipe file langsung download ke penyimpanan internal
-  window.open(`https://drive.google.com/uc?export=download&id=${file.id}`, '_blank');
-};
+  const handleDownloadAction = async (file: PopularPlugin) => {
+    setPopularPlugins((prev) =>
+      prev.map((p) =>
+        p.id === file.id ? { ...p, dl: String(parseInt(p.dl || '0') + 1) } : p
+      )
+    );
+    await trackDownload(file);
+    const hasRated = localStorage.getItem(`rated_${file.id}`);
+    if (!hasRated) {
+      setTimeout(() => {
+        setActiveFileId(file.id);
+        setShowRateModal(true);
+      }, 1500);
+    }
+
+    const fileName = file.name;
+    const downloadUrl = `https://drive.google.com/uc?export=download&id=${file.id}`;
+
+    try {
+      // Fetch sebagai blob → trigger download native browser tanpa "Buka dengan"
+      const response = await fetch(downloadUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      // Fallback kalau blob gagal (file besar / CORS)
+      console.error("Blob download gagal, fallback ke direct link:", err);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = fileName;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
 
   const handleSendRating = async (starRating: number) => {
     if (!activeFileId) return;
