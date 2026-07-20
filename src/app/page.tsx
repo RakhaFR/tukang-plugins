@@ -144,32 +144,24 @@ export default function LandingPage() {
       }, 1500);
     }
 
-    const fileName = file.name;
-    const downloadUrl = `https://drive.google.com/uc?export=download&id=${file.id}`;
+const fileName = file.name;
+const downloadUrl = `/api/drive/download?id=${file.id}&name=${encodeURIComponent(fileName)}`;
 
-  try {
-    const response = await fetch(downloadUrl);
-    const blob = await response.blob();
-    // Paksa sebagai binary — browser tidak akan auto-extract atau buka sebagai teks
-    const forcedBlob = new Blob([blob], { type: 'application/octet-stream' });
-    const blobUrl = URL.createObjectURL(forcedBlob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
-  } catch (err) {
-    console.error("Blob download gagal, fallback ke direct link:", err);
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = fileName;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
+try {
+  const response = await fetch(downloadUrl);
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
+} catch (err) {
+  console.error("Download gagal:", err);
+  window.open(`https://drive.google.com/uc?export=download&id=${file.id}`, '_blank');
+}
   };
 
   const handleSendRating = async (starRating: number) => {
