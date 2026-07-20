@@ -116,25 +116,49 @@ export default function PluginsDashboard() {
   };
 
   // Download — track + rating + langsung ke penyimpanan internal
-  const handleDownloadAction = async (file: DriveItem) => {
-    try {
-      await fetch('/api/drive/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: file.id })
-      });
-    } catch (err) {
-      console.error("Gagal tracking download plugins:", err);
-    }
+const handleDownloadAction = async (file: DriveItem) => {
+  try {
+    await fetch('/api/drive/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId: file.id })
+    });
+  } catch (err) {
+    console.error("Gagal tracking download plugins:", err);
+  }
 
-    // Langsung download ke penyimpanan internal, bypass viewer Drive
-    window.open(`https://drive.google.com/uc?export=download&id=${file.id}`, '_blank');
+  const fileName = file.name;
+  const downloadUrl = `https://drive.google.com/uc?export=download&id=${file.id}`;
 
-    const hasRated = localStorage.getItem(`rated_${file.id}`);
-    if (!hasRated) {
-      setTimeout(() => setRatingFile(file), 1500);
-    }
-  };
+  try {
+    const response = await fetch(downloadUrl);
+    const blob = await response.blob();
+    // Paksa binary — zip ga auto-extract, .plugin ga kebuka kayak teks
+    const forcedBlob = new Blob([blob], { type: 'application/octet-stream' });
+    const blobUrl = URL.createObjectURL(forcedBlob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  } catch (err) {
+    console.error("Blob download gagal, fallback ke direct link:", err);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = fileName;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  const hasRated = localStorage.getItem(`rated_${file.id}`);
+  if (!hasRated) {
+    setTimeout(() => setRatingFile(file), 1500);
+  }
+};
 
   // File biasa (zip, dll) — track download; media — preview saja
   const handleFileAction = async (file: DriveItem) => {
