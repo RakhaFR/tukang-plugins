@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     siteName: 'TukangPlugin',
     title: 'TukangPlugin — Plugin & Aset TheoTown Terlengkap',
     description: 'Cari, pantau, dan unduh plugin serta aset kustom berkualitas tinggi untuk kota digital kamu di TheoTown. Gratis, rapi, dan bebas error.',
-    images: [{ url: '/hero.png', width: 1200, height: 630, alt: 'TukangPlugin — Plugin TheoTown' }],
+    images: [{ url: 'https://tukang-plugins.vercel.app/hero.png', width: 1200, height: 630, alt: 'TukangPlugin — Plugin TheoTown' }],
     locale: 'id_ID',
   },
   twitter: {

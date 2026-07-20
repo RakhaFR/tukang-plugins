@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     siteName: 'TukangPlugin',
     title: 'Repository Plugin | TukangPlugin',
     description: 'Jelajahi semua koleksi plugin, mod, dan aset TheoTown. Download langsung dari Google Drive — terorganisir per folder, bebas duplikat.',
-    images: [{ url: '/hero.png', width: 1200, height: 630, alt: 'TukangPlugin Repository — Semua Plugin TheoTown' }],
+    images: [{ url: 'https://tukang-plugins.vercel.app/hero.png', width: 1200, height: 630, alt: 'TukangPlugin Repository — Semua Plugin TheoTown' }],
     locale: 'id_ID',
   },
   twitter: {
