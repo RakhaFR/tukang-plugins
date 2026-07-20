@@ -444,11 +444,11 @@ try {
           </p>
           <div className="socials-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
             {[
-              { name: "Instagram", icon: <FontAwesomeIcon icon={faInstagram} style={{ fontSize: 24 }} />, actionLabel: "Follow @TukangPlugin", href: "https://instagram.com", color: "#E1306C", desc: "Update info plugin & sinematik kota terbaru." },
-              { name: "TikTok", icon: <FontAwesomeIcon icon={faTiktok} style={{ fontSize: 24 }} />, actionLabel: "Tonton Konten", href: "https://tiktok.com", color: "#00f2fe", desc: "Review mod, bangunan estetik, & tips gameplay." },
+              { name: "Instagram", icon: <FontAwesomeIcon icon={faInstagram} style={{ fontSize: 24 }} />, actionLabel: "Follow @xzearty", href: "https://www.instagram.com/xzearty?igsh=MW5kc3JubzYzeXFqcw==", color: "#E1306C", desc: "Update info plugin & sinematik kota terbaru." },
+              { name: "TikTok", icon: <FontAwesomeIcon icon={faTiktok} style={{ fontSize: 24 }} />, actionLabel: "Tonton Konten", href: "https://www.tiktok.com/@xzearty_", color: "#00f2fe", desc: "Review mod, bangunan estetik, & tips gameplay." },
               { name: "YouTube Channel", icon: <FontAwesomeIcon icon={faYoutube} style={{ fontSize: 24 }} />, actionLabel: "Subscribe Channel", href: "https://www.youtube.com/@BangRiyadii", color: "#FF0000", desc: "Video tutorial instalasi lengkap, review plugin, dan showcase kota." },
-              { name: "WhatsApp Admin", icon: <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 24 }} />, actionLabel: "Chat Personal", href: "https://wa.me/628xxxxxxxx", color: "#25D366", desc: "Layanan support atau kirim request/file bermasalah." },
-              { name: "Grup WhatsApp", icon: <FontAwesomeIcon icon={faUsers} style={{ fontSize: 22 }} />, actionLabel: "Gabung Komunitas", href: "https://chat.whatsapp.com/invite-code", color: LIME, desc: "Mabar, diskusi layout kota, & share folder plugin lokal." }
+              { name: "WhatsApp Admin", icon: <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 24 }} />, actionLabel: "Chat Personal", href: "https://wa.me/6282111762085", color: "#25D366", desc: "Layanan support atau kirim request/file bermasalah." },
+              { name: "Grup WhatsApp", icon: <FontAwesomeIcon icon={faUsers} style={{ fontSize: 22 }} />, actionLabel: "Gabung Komunitas", href: "https://chat.whatsapp.com/FdYv0XZl0uW89VygSlYAn0", color: LIME, desc: "Mabar, diskusi layout kota, & share folder plugin lokal." }
             ].map((s, index) => (
               <a key={s.name} href={s.href} target="_blank" rel="noopener noreferrer" data-aos="fade-up" data-aos-delay={index * 100} className="social-card" style={{ background: "#1c1c1c", border: "1px solid rgba(255,255,255,0.04)", padding: "24px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between", textDecoration: "none", transition: "all 0.25s" }}>
                 <div>
